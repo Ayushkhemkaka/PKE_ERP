@@ -1,6 +1,7 @@
 import { getAccountSummary } from '../../../controllers/accountSummary.js';
 import { getAnalytics } from '../../../controllers/analytics.js';
 import { createCustomerAccount, listCustomerAccounts } from '../../../controllers/customerAccounts.js';
+import { getDueAccounts, markDueOrderPaid } from '../../../controllers/dueAccounts.js';
 import { find, findById } from '../../../controllers/find.js';
 import { getOrderHistory } from '../../../controllers/history.js';
 import { importOrders } from '../../../controllers/importData.js';
@@ -44,6 +45,12 @@ const handlers = {
   },
   'account-summary': {
     GET: getAccountSummary
+  },
+  'due-accounts': {
+    GET: getDueAccounts
+  },
+  'due-accounts/pay': {
+    POST: markDueOrderPaid
   },
   analytics: {
     GET: getAnalytics

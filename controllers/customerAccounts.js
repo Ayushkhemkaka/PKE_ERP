@@ -5,7 +5,7 @@ import { logUserWork } from "../utils/workTracking.js";
 const listCustomerAccounts = async (_req, res) => {
     try {
         const rows = await query(
-            `SELECT id, account_name, site, contact_name, phone, is_active, created_at, updated_at
+            `SELECT id, account_name, site, contact_name, phone, gstin, is_active, created_at, updated_at
              FROM customer_account
              WHERE is_active = 1
              ORDER BY account_name ASC`
@@ -29,13 +29,14 @@ const createCustomerAccount = async (req, res) => {
     const site = reqBody.site?.trim() || '';
     const contactName = reqBody.contactName?.trim() || '';
     const phone = reqBody.phone?.trim() || '';
+    const gstin = reqBody.gstin?.trim() || '';
     const updatedBy = reqBody.updatedBy || 'System';
 
     try {
         const result = await query(
-            `INSERT INTO customer_account(account_name, site, contact_name, phone, created_by, updated_by)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [accountName, site, contactName, phone, updatedBy, updatedBy]
+            `INSERT INTO customer_account(account_name, site, contact_name, phone, gstin, created_by, updated_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [accountName, site, contactName, phone, gstin, updatedBy, updatedBy]
         );
 
         await logUserWork({
@@ -47,7 +48,8 @@ const createCustomerAccount = async (req, res) => {
             details: {
                 accountName,
                 site,
-                contactName
+                contactName,
+                gstin
             }
         });
 

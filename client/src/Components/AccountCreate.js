@@ -6,7 +6,8 @@ const initialState = {
     accountName: '',
     site: '',
     contactName: '',
-    phone: ''
+    phone: '',
+    gstin: ''
 };
 
 const AccountCreate = () => {
@@ -63,6 +64,12 @@ const AccountCreate = () => {
                             <div className="app-field">
                                 <label className="form-label" htmlFor='phone'>Phone</label>
                                 <input id="phone" className="form-control app-input" value={formState.phone} onChange={(event) => setFormState((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone number" />
+                            </div>
+                        </div>
+                        <div className="col-lg-6">
+                            <div className="app-field">
+                                <label className="form-label" htmlFor='gstin'>GSTIN</label>
+                                <input id="gstin" className="form-control app-input" value={formState.gstin} onChange={(event) => setFormState((prev) => ({ ...prev, gstin: event.target.value.toUpperCase() }))} placeholder="Customer GST number" />
                             </div>
                         </div>
                     </div>

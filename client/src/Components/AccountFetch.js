@@ -43,6 +43,7 @@ const AccountFetch = () => {
                                 <th>Site</th>
                                 <th>Orders</th>
                                 <th>Pending Pricing</th>
+                                <th>GSTIN</th>
                                 <th>Total Order</th>
                                 <th>Cash Credit</th>
                                 <th>Bank Credit</th>
@@ -61,6 +62,7 @@ const AccountFetch = () => {
                                     <td>{account.site || '-'}</td>
                                     <td>{account.order_count}</td>
                                     <td>{account.pending_order_count}</td>
+                                    <td>{account.gstin || '-'}</td>
                                     <td>{formatCurrency(account.total_order_amount)}</td>
                                     <td>{formatCurrency(account.total_cash_credit)}</td>
                                     <td>{formatCurrency(account.total_bank_credit)}</td>

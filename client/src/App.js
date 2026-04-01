@@ -13,6 +13,7 @@ import AppAlert from './Components/AppAlert.js';
 import { AppProvider, useAppContext } from './context/AppContext.js';
 import AccountCreate from './Components/AccountCreate.js';
 import AccountFetch from './Components/AccountFetch.js';
+import DueAccountsPage from './Components/DueAccountsPage.js';
 import AnalyticsPage from './Components/AnalyticsPage.js';
 import EmployeeReceiptDesk from './Components/EmployeeReceiptDesk.js';
 import OwnerReceiptReprint from './Components/OwnerReceiptReprint.js';
@@ -37,6 +38,7 @@ function AppRoutes() {
             <Route path='/rates' element={currentUser ? <RateManager /> : <Navigate to="/login" replace />} />
             <Route path='/accounts/create' element={currentUser ? <AccountCreate /> : <Navigate to="/login" replace />} />
             <Route path='/accounts/fetch' element={currentUser ? <AccountFetch /> : <Navigate to="/login" replace />} />
+            <Route path='/due-accounts' element={currentUser ? <DueAccountsPage /> : <Navigate to="/login" replace />} />
             <Route path='/analytics' element={currentUser ? <AnalyticsPage /> : <Navigate to="/login" replace />} />
             <Route path='/employee-receipts' element={currentUser ? <EmployeeReceiptDesk /> : <Navigate to="/login" replace />} />
             <Route path='/owner-reprints' element={currentUser ? <OwnerReceiptReprint /> : <Navigate to="/login" replace />} />

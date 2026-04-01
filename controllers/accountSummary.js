@@ -10,6 +10,7 @@ const getAccountSummary = async (_req, res) => {
                 ca.site,
                 ca.contact_name,
                 ca.phone,
+                ca.gstin,
                 COUNT(bo.id) AS order_count,
                 COALESCE(SUM(bo.totalAmount), 0) AS total_order_amount,
                 COALESCE(SUM(bo.cashCredit), 0) AS total_cash_credit,

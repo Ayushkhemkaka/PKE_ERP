@@ -3,7 +3,7 @@ import moment from 'moment'
 import React, { useCallback, useEffect, useState } from 'react'
 import FinanceDetails from './FinanceDetails.js';
 import { useAppContext } from '../context/AppContext.js';
-import { buildInvoiceHtml, buildPrintableOrder, formatCurrency, getPaymentSummary } from '../utils/receiptUtils.js';
+import { buildInvoiceHtml, buildPrintableOrder, formatCurrency } from '../utils/receiptUtils.js';
 
 const OrderEntry = ({ mode = 'standard' }) => {
     const { currentUser, notify } = useAppContext();
@@ -15,7 +15,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
     const [measurementUnit, setMeasurementUnit] = useState("")
     const [otherItem, setOtherItem] = useState("")
     const [otherMeasurementUnit, setOtherMeasurementUnit] = useState("")
-    const [finaceDetails, setFinanceDetails] = useState({ 'quantity': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
+    const [finaceDetails, setFinanceDetails] = useState({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
     const [reset, setReset] = useState(0)
     const [date, setDate] = useState(moment().format("YYYY-MM-DD"))
     const [lastSubmittedOrder, setLastSubmittedOrder] = useState(null)
@@ -118,18 +118,31 @@ const OrderEntry = ({ mode = 'standard' }) => {
         const accountId = event.target.value
         setSelectedAccountId(accountId)
 
-        const selectedAccount = customerAccounts.find((account) => String(account.id) === String(accountId))
-        if (!selectedAccount) {
-            return
-        }
-
         const nameInput = document.getElementById('name')
         const siteInput = document.getElementById('site')
+        const gstinInput = document.getElementById('customerGstin')
+
+        const selectedAccount = customerAccounts.find((account) => String(account.id) === String(accountId))
+        if (!selectedAccount) {
+            if (nameInput) {
+                nameInput.value = ''
+            }
+            if (siteInput) {
+                siteInput.value = ''
+            }
+            if (gstinInput) {
+                gstinInput.value = ''
+            }
+            return
+        }
         if (nameInput) {
             nameInput.value = selectedAccount.account_name || ''
         }
         if (siteInput) {
             siteInput.value = selectedAccount.site || ''
+        }
+        if (gstinInput) {
+            gstinInput.value = selectedAccount.gstin || ''
         }
     }
 
@@ -143,7 +156,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
     }
 
     const resetClickHandler = () => {
-        setFinanceDetails({ 'quantity': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
+        setFinanceDetails({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
         setReset(reset + 1)
         setDate(moment().format("YYYY-MM-DD"))
         fetchNextSequence(moment().format("YYYY-MM-DD"))
@@ -191,10 +204,14 @@ const OrderEntry = ({ mode = 'standard' }) => {
         input.date = event.target.date.value
         input.name = event.target.name.value
         input.site = event.target.site.value
+        input.customerGstin = event.target.customerGstin.value || selectedAccount?.gstin || ''
         input.lorryNumber = event.target.lorryNumber.value
         event.target.item.value === "Other" ? input.item = event.target.otherItem.value : input.item = event.target.item.value
         event.target.measurementUnit.value === "Other" ? input.measurementUnit = event.target.othermeasurementUnit.value : input.measurementUnit = event.target.measurementUnit.value
         input.quantity = Number(finaceDetails.quantity || 0)
+        input.gross = Number(finaceDetails.gross || 0)
+        input.tare = Number(finaceDetails.tare || 0)
+        input.net = Number(finaceDetails.net || finaceDetails.quantity || 0)
         input.rate = Number(finaceDetails.rate || 0)
         input.amount = Number(finaceDetails.amount || 0)
         input.discount = Number(finaceDetails.discount || 0)
@@ -207,6 +224,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
         input.cashCredit = Number(finaceDetails.cashCredit || 0)
         input.bankCredit = Number(finaceDetails.bankCredit || 0)
         input.source = event.target.source.value
+        input.remarks = event.target.remarks.value
         input.slipNumber = slipNumber
         input.createdBy = currentUser?.fullName || currentUser?.email || 'System'
         input.orderType = isB2B ? 'B2B' : 'Standard'
@@ -230,8 +248,10 @@ const OrderEntry = ({ mode = 'standard' }) => {
                 setItem("")
                 event.target.name.value = selectedAccount?.account_name || null
                 event.target.site.value = selectedAccount?.site || null
+                event.target.customerGstin.value = selectedAccount?.gstin || ''
                 event.target.lorryNumber.value = null
                 event.target.source.value = null
+                event.target.remarks.value = ''
                 fetchNextSequence(date)
             }).catch(err => {
                 notify('error', err.response?.data?.message || 'Unable to save the order.')
@@ -339,15 +359,21 @@ const OrderEntry = ({ mode = 'standard' }) => {
                                 <input type="text" id="site" className="form-control app-input" required name="site" placeholder="Customer Site" />
                             </div>
                         </div>
+                        <div className="col-lg-6">
+                            <div className="app-field">
+                                <label className="form-label" htmlFor='customerGstin'>Customer GSTIN:</label>
+                                <input type="text" id="customerGstin" className="form-control app-input" name="customerGstin" placeholder="Customer GST number" />
+                            </div>
+                        </div>
                     </div>
                     <div className='row g-3 mt-1'>
-                        <div className="col-lg-4 col-md-6">
+                        <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='lorryNumber'>Lorry Number:</label>
                                 <input type="text" className="form-control app-input" id="lorryNumber" required name="lorryNumber" placeholder="Lorry Number" />
                             </div>
                         </div>
-                        <div className="col-lg-4 col-md-6">
+                        <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='item'>Item:</label>
                                 <select id="item" className="form-select app-input" name="item" required value={item} onChange={itemChangeHandler}>
@@ -363,13 +389,13 @@ const OrderEntry = ({ mode = 'standard' }) => {
                                 </select>
                             </div>
                         </div>
-                        <div className="col-lg-4 col-md-6">
+                        {!isDisabledOtherItem ? <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='otherItem'>Other Item:</label>
-                                <input type="text" className="form-control app-input" id="otherItem" required name="otherItem" placeholder="Enter Other Item" disabled={isDisabledOtherItem} value={otherItem} onChange={otherItemChangeHandler} />
+                                <input type="text" className="form-control app-input" id="otherItem" required name="otherItem" placeholder="Enter Other Item" value={otherItem} onChange={otherItemChangeHandler} />
                             </div>
-                        </div>
-                        <div className="col-lg-4 col-md-6">
+                        </div> : null}
+                        <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='measurementUnit'>Measurement Unit:</label>
                                 <select id="measurementUnit" className="form-select app-input" name="measurementUnit" value={measurementUnit} onChange={measurementUnitChangeHandler} required>
@@ -380,15 +406,30 @@ const OrderEntry = ({ mode = 'standard' }) => {
                                 </select>
                             </div>
                         </div>
-                        <div className="col-lg-4 col-md-6">
+                        {!isDisabledOtherMeasurnmentUnit ? <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='othermeasurementUnit'>Other Measurement Unit:</label>
-                                <input type="text" className="form-control app-input" id="othermeasurementUnit" required name="othermeasurementUnit" placeholder="Enter Other Item" disabled={isDisabledOtherMeasurnmentUnit} value={otherMeasurementUnit} onChange={OtherMeasurementUnitChangeHandler} />
+                                <input type="text" className="form-control app-input" id="othermeasurementUnit" required name="othermeasurementUnit" placeholder="Enter Other Item" value={otherMeasurementUnit} onChange={OtherMeasurementUnitChangeHandler} />
+                            </div>
+                        </div> : null}
+                        <div className="col-lg-3 col-md-6">
+                            <div className="app-field">
+                                <label className="form-label" htmlFor='remarks'>Remarks:</label>
+                                <input type="text" className="form-control app-input" id="remarks" name="remarks" placeholder="Optional remarks for challan" />
                             </div>
                         </div>
                     </div>
                 </div>
-                <FinanceDetails isQuantityDisabled={false} onChange={financeDetailsChangeHandler} onNotify={notify} value={finaceDetails} reset={reset} />
+                <FinanceDetails
+                    isQuantityDisabled={false}
+                    onChange={financeDetailsChangeHandler}
+                    onNotify={notify}
+                    value={finaceDetails}
+                    reset={reset}
+                    showTaxFields={isB2B}
+                    measurementSelection={measurementUnit}
+                    measurementUnit={measurementUnit === 'Other' ? otherMeasurementUnit : measurementUnit}
+                />
                 <div className='action-row mt-4'>
                     {lastSubmittedOrder ? <button type="button" className="btn btn-dark btn-lg" onClick={() => printInvoice(lastSubmittedOrder)}>Print Invoice</button> : null}
                     <button id="reset" type="reset" className="btn btn-outline-secondary btn-lg" onClick={resetClickHandler}>Reset</button>
@@ -399,33 +440,49 @@ const OrderEntry = ({ mode = 'standard' }) => {
                 <div className="section-card-header">
                     <div>
                         <h5 className="mb-1">Printed Format</h5>
-                        <p className="section-subtitle mb-0">This invoice-style layout appears immediately after a successful submit.</p>
+                        <p className="section-subtitle mb-0">This challan layout appears immediately after a successful submit.</p>
                     </div>
                     <div className="page-badge">{lastSubmittedOrder.invoiceNumber}</div>
                 </div>
                 <div className="invoice-sheet">
-                    <div className="invoice-sheet-header">
-                        <div>
-                            <p className="invoice-sheet-title">P. K. ENTERPRISES</p>
-                            <p className="invoice-sheet-subtitle">{isB2B ? 'B2B Order Invoice' : 'Order Entry Invoice'}</p>
-                        </div>
-                        <div className="invoice-meta">
-                            <span>Invoice No</span>
-                            <strong>{lastSubmittedOrder.invoiceNumber}</strong>
-                        </div>
-                    </div>
-                    <div className="invoice-preview-grid">
-                        {lastSubmittedOrder.customerAccountName ? <div><span>Customer Account</span><strong>{lastSubmittedOrder.customerAccountName}</strong></div> : null}
-                        <div><span>Name</span><strong>{lastSubmittedOrder.name}</strong></div>
-                        <div><span>Date</span><strong>{lastSubmittedOrder.date}</strong></div>
-                        <div><span>Source</span><strong>{lastSubmittedOrder.source}</strong></div>
-                        <div><span>Item</span><strong>{lastSubmittedOrder.item}</strong></div>
-                        <div><span>Quantity</span><strong>{lastSubmittedOrder.quantityDisplay}</strong></div>
-                        <div><span>Rate</span><strong>{formatCurrency(lastSubmittedOrder.rate)}</strong></div>
-                        <div><span>Amount</span><strong>{formatCurrency(lastSubmittedOrder.amount)}</strong></div>
-                        <div><span>Freight</span><strong>{formatCurrency(lastSubmittedOrder.freight)}</strong></div>
-                        <div><span>Total</span><strong>{formatCurrency(lastSubmittedOrder.total)}</strong></div>
-                        <div><span>Payment Status</span><strong>{getPaymentSummary(lastSubmittedOrder)}</strong></div>
+                    <div className="challan-preview-grid">
+                        {Array.from({ length: 6 }).map((_, index) => (
+                            <div className="challan-preview-card" key={`${lastSubmittedOrder.invoiceNumber}-${index}`}>
+                                <div className="challan-preview-topline">Railway Gate Pass / Challan</div>
+                                <div className="challan-preview-header">
+                                    <div className="challan-brand-block">
+                                        <p className="challan-brand-name">P. K. ENTERPRISES</p>
+                                        <p className="challan-brand-copy">Harinagar - 845106, Bihar</p>
+                                        <p className="challan-brand-copy">GSTIN - 10AENPK8366A1ZQ</p>
+                                    </div>
+                                    <div className="challan-meta-block">
+                                        <div className="challan-meta-row">
+                                            <span>Sl. No.</span>
+                                            <strong>{lastSubmittedOrder.invoiceNumber}</strong>
+                                        </div>
+                                        <div className="challan-meta-row">
+                                            <span>Date</span>
+                                            <strong>{lastSubmittedOrder.date}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="challan-body-grid">
+                                    <div className="challan-row challan-row-full"><span>M/s</span><strong>{lastSubmittedOrder.name}</strong></div>
+                                    <div className="challan-row"><span>GSTN</span><strong>{lastSubmittedOrder.customerGstin || '-'}</strong></div>
+                                    <div className="challan-row"><span>Dly. Point</span><strong>{lastSubmittedOrder.site || '-'}</strong></div>
+                                    <div className="challan-row"><span>Material/Size</span><strong>{lastSubmittedOrder.item}</strong></div>
+                                    <div className="challan-row"><span>{lastSubmittedOrder.showQuantity ? 'Quantity' : 'Gross'}</span><strong>{lastSubmittedOrder.showQuantity ? lastSubmittedOrder.quantity : lastSubmittedOrder.gross}</strong></div>
+                                    <div className="challan-row"><span>{lastSubmittedOrder.showQuantity ? 'Measurement' : 'Tare'}</span><strong>{lastSubmittedOrder.showQuantity ? lastSubmittedOrder.measurementUnit : lastSubmittedOrder.tare}</strong></div>
+                                    {!lastSubmittedOrder.showQuantity ? <div className="challan-row"><span>Net</span><strong>{lastSubmittedOrder.net}</strong></div> : <div className="challan-row"><span>Source</span><strong>{lastSubmittedOrder.source || '-'}</strong></div>}
+                                    <div className="challan-row"><span>Rate</span><strong>{formatCurrency(lastSubmittedOrder.rate)}</strong></div>
+                                    <div className="challan-row"><span>MOD</span><strong>{lastSubmittedOrder.paymentStatus}</strong></div>
+                                    <div className="challan-row"><span>Amount</span><strong>{formatCurrency(lastSubmittedOrder.amount)}</strong></div>
+                                    <div className="challan-row"><span>FRT</span><strong>{formatCurrency(lastSubmittedOrder.freight)}</strong></div>
+                                    <div className="challan-row challan-row-full"><span>Vehicle No.</span><strong>{lastSubmittedOrder.lorryNumber || '-'}</strong></div>
+                                    <div className="challan-row challan-row-full"><span>Remarks</span><strong>{lastSubmittedOrder.remarks || '-'}</strong></div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div> : null}

@@ -2,13 +2,24 @@ import React, { useEffect, useState } from 'react'
 import Input from './Input.js';
 
 const FinanceDetails = (props) => {
+    const showTaxFields = props.showTaxFields ?? true;
+    const selectedMeasurementOption = String(props.measurementSelection || '').toLowerCase();
+    const useQuantityInput = String(props.measurementUnit || '').toLowerCase() === 'cft' || selectedMeasurementOption === 'other';
     const normalizeNumber = (value, fallback = 0) => {
         const parsedValue = Number(value)
         return Number.isFinite(parsedValue) ? parsedValue : fallback
     }
+    const getEffectiveQuantity = (overrides = {}) => {
+        const quantityValue = overrides.quantity ?? quantity
+        const netValue = overrides.net ?? net
+        return useQuantityInput ? normalizeNumber(quantityValue) : normalizeNumber(netValue)
+    }
     const [rate ,setRate] = useState(props.value.rate)
     const [discount,setDiscount] = useState(props.value.discount)
     const [quantity,setQuantity] = useState(props.value.quantity)
+    const [gross,setGross] = useState(props.value.gross || 0)
+    const [tare,setTare] = useState(props.value.tare || 0)
+    const [net,setNet] = useState(props.value.net || 0)
     const [amount,setAmount] = useState(props.value.amount)
     const [freight,setFreight] = useState(props.value.freight)
     const [taxPercent,setTaxPercent] = useState(props.value.taxPercent)
@@ -29,6 +40,9 @@ const FinanceDetails = (props) => {
             setRate(props.value.rate)
             setDiscount(props.value.discount)
             setQuantity(props.value.quantity)
+            setGross(props.value.gross || 0)
+            setTare(props.value.tare || 0)
+            setNet(props.value.net || 0)
             setAmount(props.value.amount)
             setFreight(props.value.freight)
             setTaxPercent(props.value.taxPercent)
@@ -43,13 +57,16 @@ const FinanceDetails = (props) => {
     useEffect(()=>{
         resetValues()
     })
-    const setAmountValue = (rate,quantity,discountVal)=>{
+    const setAmountValue = (rate,quantity,discountVal, fieldOverrides = {})=>{
         let change = {}
         let amountValue = 0
-        let taxAmountValue = taxAmount
+        let taxAmountValue = showTaxFields ? taxAmount : 0
         const normalizedRate = normalizeNumber(rate)
         const normalizedQuantity = normalizeNumber(quantity)
         const normalizedDiscount = normalizeNumber(discountVal)
+        const normalizedGross = normalizeNumber(fieldOverrides.gross ?? gross)
+        const normalizedTare = normalizeNumber(fieldOverrides.tare ?? tare)
+        const normalizedNet = normalizeNumber(fieldOverrides.net ?? net || normalizedQuantity)
         if (discountVal >0){
             amountValue = (normalizedRate * normalizedQuantity) - normalizedDiscount
             amountValue = amountValue === 0 ? "0" : amountValue
@@ -64,13 +81,16 @@ const FinanceDetails = (props) => {
             change['discount'] =discountVal
             change['amount'] = amountValue
             change['taxAmount'] = taxAmountValue
-            change['quantity'] = normalizedQuantity
+            change['quantity'] = useQuantityInput ? normalizedQuantity : normalizedNet
+            change['gross'] = normalizedGross
+            change['tare'] = normalizedTare
+            change['net'] = normalizedNet
             change['rate']  = normalizedRate
             setAmount(amountValue)
-            taxAmountValue =  (normalizeNumber(taxPercent) * amountValue *0.01)
+            taxAmountValue = showTaxFields ? (normalizeNumber(taxPercent) * amountValue *0.01) : 0
             setTaxAmount(taxAmountValue)
             setTotalAmountValue(taxAmountValue ,freight,amountValue,change)
-            setQuantity(normalizedQuantity)
+            setQuantity(useQuantityInput ? normalizedQuantity : normalizedNet)
             setRate(normalizedRate)
             setDiscount(normalizedDiscount)
         }
@@ -95,28 +115,70 @@ const FinanceDetails = (props) => {
 
     const quantityChangeHandler=(value)=>{
         let quantityValue = normalizeNumber(value)
+        setNet(useQuantityInput ? quantityValue : net)
         setAmountValue(rate , quantityValue ,discount)
     }
 
+    const updateWeightValues = (nextGross, nextTare) => {
+        const normalizedGross = normalizeNumber(nextGross)
+        const normalizedTare = normalizeNumber(nextTare)
+        const nextNet = Math.max(normalizedGross - normalizedTare, 0)
+        setGross(normalizedGross)
+        setTare(normalizedTare)
+        setNet(nextNet)
+        props.onChange({
+            ...props.value,
+            gross: normalizedGross,
+            tare: normalizedTare,
+            net: nextNet,
+            quantity: nextNet,
+            rate,
+            amount,
+            discount,
+            freight,
+            taxPercent,
+            taxAmount,
+            totalAmount,
+            paymentStatus,
+            dueAmount,
+            cashCredit,
+            bankCredit
+        })
+        setAmountValue(rate, nextNet, discount, {
+            gross: normalizedGross,
+            tare: normalizedTare,
+            net: nextNet
+        })
+    }
+
+    const grossChangeHandler = (value) => {
+        updateWeightValues(value, tare)
+    }
+
+    const tareChangeHandler = (value) => {
+        updateWeightValues(gross, value)
+    }
+
     const rateChangeHandler=(value)=>{   
-        setAmountValue(normalizeNumber(value) , quantity ,discount)
+        setAmountValue(normalizeNumber(value) , getEffectiveQuantity() ,discount)
     }
     const discountChangeHandler=(value)=>{
         let discountValue = normalizeNumber(value)
-        setAmountValue(rate , quantity ,discountValue)      
+        setAmountValue(rate , getEffectiveQuantity() ,discountValue)      
     }
 
     const amountChangeHandler=(value)=>{
         let amountValue = normalizeNumber(value)
-        if(normalizeNumber(quantity) === 0){
+        const effectiveQuantity = getEffectiveQuantity()
+        if(effectiveQuantity === 0){
             setAmount(amountValue)
-            let change = {'amount':amountValue}
+            let change = {'amount':amountValue, 'taxAmount': showTaxFields ? taxAmount : 0, 'taxPercent': showTaxFields ? taxPercent : 0}
             setTotalAmountValue(taxAmount,freight,amountValue,change)
         }else{
             setAmount(amountValue)
-            let rateValue = (amountValue + normalizeNumber(discount)) / normalizeNumber(quantity)
+            let rateValue = (amountValue + normalizeNumber(discount)) / effectiveQuantity
             setRate(rateValue)
-            let change = {'amount':amountValue,'rate':rateValue}
+            let change = {'amount':amountValue,'rate':rateValue, 'taxAmount': showTaxFields ? taxAmount : 0, 'taxPercent': showTaxFields ? taxPercent : 0}
             setTotalAmountValue(taxAmount,freight,amountValue,change)
         }
     }
@@ -129,6 +191,12 @@ const FinanceDetails = (props) => {
     }
 
     const taxPercentChangeHandler = (value) =>{
+        if (!showTaxFields) {
+            setTaxPercent(0)
+            setTaxAmount(0)
+            props.onChange({...props.value, 'taxPercent': 0, 'taxAmount': 0})
+            return
+        }
         let taxPercentValue = normalizeNumber(value)
         if(taxPercentValue > 100 || taxPercentValue < 0){
             notify("Please specify a correct tax percent value.")
@@ -266,21 +334,25 @@ const FinanceDetails = (props) => {
             <div className="section-card-header">
                 <div>
                     <h5 className="mb-1">Financial Details</h5>
-                    <p className="section-subtitle mb-0">Rates, taxes, credits, and due calculations update as you work.</p>
+                    <p className="section-subtitle mb-0">{useQuantityInput ? 'Rates, totals, and payment credits update from quantity-based dispatch.' : 'Rates, totals, and payment credits update from gross, tare, and net weight.'}</p>
                 </div>
             </div>
             <div className='row g-3'>
-                <Input name={"Quantity"} id={"quantity"} placeholder={"Quantity Ordered"} isDisabled={props.isQuantityDisabled} value={quantity} onChange={quantityChangeHandler} isRequired={false}/>
+                {useQuantityInput ? <Input name={"Quantity"} id={"quantity"} placeholder={"Quantity Ordered"} isDisabled={props.isQuantityDisabled} value={quantity} onChange={quantityChangeHandler} isRequired={false}/> : <>
+                    <Input name={"Gross"} id={"gross"} placeholder={"Gross Weight"} isDisabled={false} value={gross} onChange={grossChangeHandler} isRequired={false}/>
+                    <Input name={"Tare"} id={"tare"} placeholder={"Tare Weight"} isDisabled={false} value={tare} onChange={tareChangeHandler} isRequired={false}/>
+                    <Input name={"Net"} id={"net"} placeholder={"Net Weight"} isDisabled={true} value={net} isRequired={false}/>
+                </>}
                 <Input name={"Rate"} id={"rate"} placeholder={"Rate of Product"} isDisabled={false} value={rate} onChange={rateChangeHandler} isRequired={false}/>
                 <Input name={"Amount"} id={"amount"} placeholder={"Amount of Order"} isDisabled={false} value={amount} onChange={amountChangeHandler} isRequired={false}/>
             </div>
             <div className='row g-3 mt-1'>
                 <Input name={"Discount"} id={"discount"} placeholder={"Total Discount on Order"} isDisabled={false} value={discount} onChange={discountChangeHandler} isRequired={false}/>
                 <Input name={"Freight"} id={"freight"} placeholder={"Freight Charges"} isDisabled={false} value={freight} onChange={freightChangeHandler} isRequired={false}/>
-                <Input name={"Tax Percent"} id={"taxPercent"} placeholder={"Tax Percent for Order"} isDisabled={false} value={taxPercent} onChange={taxPercentChangeHandler} isRequired={false}/>
+                {showTaxFields ? <Input name={"Tax Percent"} id={"taxPercent"} placeholder={"Tax Percent for Order"} isDisabled={false} value={taxPercent} onChange={taxPercentChangeHandler} isRequired={false}/> : null}
             </div>
             <div className='row g-3 mt-1'>
-                <Input name={"Tax Amount"} id={"taxAmount"} placeholder={"Tax Amount for Order"} isDisabled={true} value={taxAmount} isRequired={false}/>
+                {showTaxFields ? <Input name={"Tax Amount"} id={"taxAmount"} placeholder={"Tax Amount for Order"} isDisabled={true} value={taxAmount} isRequired={false}/> : null}
                 <Input name={"Total Amount"} id={"totalAmount"} placeholder={"Total Amount of Order"} isDisabled={true} value={totalAmount} isRequired={false}/>
             </div>
             <div className='row g-3 mt-1'>

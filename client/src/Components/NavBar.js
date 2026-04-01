@@ -53,6 +53,9 @@ const NavBar = () => {
                 <Link className="nav-link" to="/accounts/fetch" style={{ textDecoration: 'none' }}>Account Fetch</Link>
               </li>
               <li className="nav-item">
+                <Link className="nav-link" to="/due-accounts" style={{ textDecoration: 'none' }}>Due Accounts</Link>
+              </li>
+              <li className="nav-item">
                 <Link className="nav-link" to="/analytics" style={{ textDecoration: 'none' }}>Analytics</Link>
               </li>
               <li className="nav-item">

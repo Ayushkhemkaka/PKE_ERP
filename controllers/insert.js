@@ -86,6 +86,7 @@ const insert = async (req,res) =>{
         orderType,
         reqBody.customerAccountId || null,
         reqBody.customerAccountName || null,
+        reqBody.customerGstin || null,
         reqBody.date,
         reqBody.name,
         reqBody.site,
@@ -93,6 +94,9 @@ const insert = async (req,res) =>{
         reqBody.item,
         reqBody.measurementUnit,
         toNumber(reqBody.quantity),
+        toNumber(reqBody.gross),
+        toNumber(reqBody.tare),
+        toNumber(reqBody.net),
         toNumber(reqBody.rate),
         toNumber(reqBody.amount),
         toNumber(reqBody.discount),
@@ -107,6 +111,7 @@ const insert = async (req,res) =>{
         toNumber(reqBody.cashCredit),
         toNumber(reqBody.bankCredit),
         reqBody.source,
+        reqBody.remarks || '',
         reqBody.slipNumber,
         createdBy,
         createdBy
@@ -124,6 +129,9 @@ const insert = async (req,res) =>{
             reqBody.item,
             reqBody.measurementUnit,
             toNumber(reqBody.quantity),
+            toNumber(reqBody.gross),
+            toNumber(reqBody.tare),
+            toNumber(reqBody.net),
             toNumber(reqBody.rate),
             toNumber(reqBody.amount),
             toNumber(reqBody.discount),
@@ -138,6 +146,8 @@ const insert = async (req,res) =>{
             dueOnCreate,
             duePaid,
             reqBody.source,
+            reqBody.remarks || '',
+            reqBody.customerGstin || null,
             reqBody.slipNumber,
             createdBy,
             createdBy
@@ -152,6 +162,9 @@ const insert = async (req,res) =>{
             reqBody.item,
             reqBody.measurementUnit,
             toNumber(reqBody.quantity),
+            toNumber(reqBody.gross),
+            toNumber(reqBody.tare),
+            toNumber(reqBody.net),
             toNumber(reqBody.rate),
             toNumber(reqBody.amount),
             toNumber(reqBody.discount),
@@ -166,6 +179,8 @@ const insert = async (req,res) =>{
             dueOnCreate,
             duePaid,
             reqBody.source,
+            reqBody.remarks || '',
+            reqBody.customerGstin || null,
             reqBody.slipNumber,
             createdBy,
             createdBy
@@ -176,38 +191,38 @@ const insert = async (req,res) =>{
             orderType === 'B2B'
                 ? `INSERT INTO ${targetTable}(
                     id, bookNumber, customerAccountId, customerAccountName, date, name, site, lorryNumber, item, measurementUnit,
-                    quantity, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
+                    quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
                     paymentStatus, cashCredit, bankCredit, dueAmount, due_on_create, due_paid,
-                    source, slipNumber, lastUpdatedBy, createdBy
+                    source, remarks, customerGstin, slipNumber, lastUpdatedBy, createdBy
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?
                 )`
                 : `INSERT INTO ${targetTable}(
                     id, bookNumber, date, name, site, lorryNumber, item, measurementUnit,
-                    quantity, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
+                    quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
                     paymentStatus, cashCredit, bankCredit, dueAmount, due_on_create, due_paid,
-                    source, slipNumber, lastUpdatedBy, createdBy
+                    source, remarks, customerGstin, slipNumber, lastUpdatedBy, createdBy
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?
                 )`,
             splitValues
         );
 
         await query(
             `INSERT INTO entry(
-                id, bookNumber, orderType, customerAccountId, customerAccountName, date, name, site, lorryNumber, item, measurementUnit,
-                quantity, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
-                paymentStatus, dueAmount, due_on_create, due_paid, cashCredit, bankCredit, source, slipNumber, lastUpdatedBy, createdBy
+                id, bookNumber, orderType, customerAccountId, customerAccountName, customerGstin, date, name, site, lorryNumber, item, measurementUnit,
+                quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
+                paymentStatus, dueAmount, due_on_create, due_paid, cashCredit, bankCredit, source, remarks, slipNumber, lastUpdatedBy, createdBy
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )`,
             values
         );
@@ -224,6 +239,9 @@ const insert = async (req,res) =>{
                 orderType,
                 item: reqBody.item,
                 measurementUnit: reqBody.measurementUnit,
+                gross: toNumber(reqBody.gross),
+                tare: toNumber(reqBody.tare),
+                net: toNumber(reqBody.net),
                 customerAccountName: reqBody.customerAccountName || null
             }
         });

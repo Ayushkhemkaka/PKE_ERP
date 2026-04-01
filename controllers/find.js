@@ -7,7 +7,8 @@ const allowedColumns = new Set([
     'booknumber', 'slipnumber', 'source', 'site', 'measurementunit', 'rate',
     'amount', 'discount', 'freight', 'taxpercent', 'taxamount',
     'totalamount', 'paymentstatus', 'dueamount', 'cashcredit', 'bankcredit',
-    'ordertype', 'customeraccountname', 'due_on_create', 'due_paid', 'orderstatus', 'is_printed', 'printed_by'
+    'ordertype', 'customeraccountname', 'customergstin', 'due_on_create', 'due_paid', 'orderstatus', 'is_printed', 'printed_by',
+    'gross', 'tare', 'net', 'remarks'
 ]);
 
 const normalizeRows = (rows) => rows.map((row) => ({
