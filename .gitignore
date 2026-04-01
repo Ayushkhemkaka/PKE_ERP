@@ -12,6 +12,7 @@
 # production
 /build
 /client/build
+/client/build_verify*
 /build_verify*
 
 # misc

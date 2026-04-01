@@ -1,4 +1,5 @@
 /build
+/build_verify*
 /node_modules
 /public/public
 /src/src
