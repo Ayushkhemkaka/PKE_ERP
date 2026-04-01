@@ -273,20 +273,33 @@ const OrderEntry = ({ mode = 'standard' }) => {
     }
     return (
         <section className='form-container'>
-            <div className="page-heading">
+            <div className="page-heading order-entry-heading">
                 <div>
                     <span className="page-eyebrow">{isB2B ? 'B2B Operations' : 'Operations'}</span>
                     <h2 className="mb-2">{isB2B ? 'B2B Order Entry' : 'Order Entry'}</h2>
-                    <p className="page-subtitle mb-0">{isB2B ? 'Select a customer account first, then capture dispatch and commercial details for the B2B order.' : 'Capture dispatch details, product specifics, and payment breakdown in one workflow.'}</p>
+                    <p className="page-subtitle mb-0">{isB2B ? 'Select the account, fill only the dispatch fields that matter, and save.' : 'Enter dispatch details, weights or quantity, and payment information.'}</p>
                 </div>
-                <div className="page-badge">{isB2B ? 'Account-backed' : 'Live form'}</div>
+                <div className="order-entry-generated">
+                    <div className="generated-pill">
+                        <span>Book</span>
+                        <strong>{bookNumber}</strong>
+                    </div>
+                    <div className="generated-pill">
+                        <span>Serial</span>
+                        <strong>{slipNumber}</strong>
+                    </div>
+                    <div className="generated-pill">
+                        <span>Printed</span>
+                        <strong>No</strong>
+                    </div>
+                </div>
             </div>
             <form onSubmit={formSubmitHandler}>
                 <div className="section-card">
                     <div className="section-card-header">
                         <div>
                             <h5 className="mb-1">Dispatch Details</h5>
-                            <p className="section-subtitle mb-0">Start with the slip, source, date, and customer details for this order.</p>
+                            <p className="section-subtitle mb-0">Computer-generated values are shown as text. Only fill the dispatch and customer details below.</p>
                         </div>
                     </div>
                     {isB2B ? <div className="account-panel mb-4">
@@ -309,26 +322,14 @@ const OrderEntry = ({ mode = 'standard' }) => {
                             </div>
                             <div className="col-lg-6">
                                 <div className="account-summary-card">
-                                    <span>Available Accounts</span>
-                                    <strong>{customerAccounts.length}</strong>
-                                    <small>{selectedAccountId ? 'This B2B order will be saved against the selected account.' : 'Choose an existing account before you submit the order.'}</small>
+                                    <span>Account Status</span>
+                                    <strong>{selectedAccountId ? 'Selected' : customerAccounts.length}</strong>
+                                    <small>{selectedAccountId ? 'Name, site, and GSTIN are now linked to this order.' : 'Choose an account before you submit the B2B order.'}</small>
                                 </div>
                             </div>
                         </div>
                     </div> : null}
                     <div className='row g-3'>
-                        <div className="col-lg-3 col-md-6">
-                            <div className="app-field app-display-field">
-                                <span className="form-label">Book Number</span>
-                                <div className="app-display-value">{bookNumber}</div>
-                            </div>
-                        </div>
-                        <div className="col-lg-3 col-md-6">
-                            <div className="app-field app-display-field">
-                                <span className="form-label">Serial Number</span>
-                                <div className="app-display-value">{slipNumber}</div>
-                            </div>
-                        </div>
                         <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='source'>Source:</label>

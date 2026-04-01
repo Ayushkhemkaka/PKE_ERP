@@ -16,7 +16,7 @@ const SearchResult = (props) => {
 
     const selectedOrderTitle = selectedData?.id ? `${selectedData.name || 'Order'} - ${selectedData.id}` : 'No order selected';
     const selectedOrderMeta = selectedData?.id
-        ? `${selectedData.item || 'Item pending'} | Qty ${selectedData.quantity || 0}`
+        ? `${selectedData.item || 'Item pending'} | Qty ${selectedData.quantity || 0}${selectedData.net ? ` | Net ${selectedData.net}` : ''}${selectedData.remarks ? ` | ${selectedData.remarks}` : ''}`
         : props.mode === 'b2b'
             ? 'Choose a B2B order to inspect account-linked details and update values.'
             : 'Choose a general order to inspect payment and pricing details.';

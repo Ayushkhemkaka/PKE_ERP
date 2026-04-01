@@ -3,8 +3,7 @@ import Input from './Input.js';
 
 const FinanceDetails = (props) => {
     const showTaxFields = props.showTaxFields ?? true;
-    const selectedMeasurementOption = String(props.measurementSelection || '').toLowerCase();
-    const useQuantityInput = String(props.measurementUnit || '').toLowerCase() === 'cft' || selectedMeasurementOption === 'other';
+    const useQuantityInput = String(props.measurementUnit || '').toLowerCase() !== 'tons';
     const normalizeNumber = (value, fallback = 0) => {
         const parsedValue = Number(value)
         return Number.isFinite(parsedValue) ? parsedValue : fallback

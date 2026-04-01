@@ -378,6 +378,43 @@ code {
   font-size: 0.85rem;
 }
 
+.order-entry-heading {
+  align-items: flex-end;
+}
+
+.order-entry-generated {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.generated-pill {
+  min-width: 110px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(31, 111, 120, 0.1), rgba(255, 255, 255, 0.96));
+  border: 1px solid rgba(31, 111, 120, 0.14);
+}
+
+.generated-pill span,
+.generated-pill strong {
+  display: block;
+}
+
+.generated-pill span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--app-text-muted);
+}
+
+.generated-pill strong {
+  margin-top: 4px;
+  font-size: 1rem;
+  color: var(--app-primary-deep);
+}
+
 .section-card {
   background: var(--app-surface-strong);
   border: 1px solid rgba(98, 73, 45, 0.08);
@@ -1111,6 +1148,10 @@ code {
   .page-heading,
   .section-card-header {
     flex-direction: column;
+  }
+
+  .order-entry-generated {
+    justify-content: flex-start;
   }
 
   .receipt-desk-layout {

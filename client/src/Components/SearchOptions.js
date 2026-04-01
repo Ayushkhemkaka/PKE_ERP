@@ -8,7 +8,11 @@ import * as XLSX from 'xlsx';
 
 const SearchOptions = (props) => {
     const { notify, currentUser } = useAppContext();
-    const [columnList, setColumnList] = useState(["PaymentStatus", "MeasurementUnit", "BankCredit", "CashCredit", "DueAmount"]);
+    const [columnList, setColumnList] = useState(() => (
+        props.mode === 'b2b'
+            ? ["MeasurementUnit", "gross", "tare", "net", "remarks", "PaymentStatus", "DueAmount", "customerAccountName"]
+            : ["MeasurementUnit", "gross", "tare", "net", "remarks", "PaymentStatus", "DueAmount"]
+    ));
     const [isDisabledOtherItem, setIsDisabledOtherItem] = useState(true);
     const [item, setItem] = useState("")
     const [otherItem, setOtherItem] = useState("")
@@ -234,12 +238,12 @@ const SearchOptions = (props) => {
                                 </select>
                             </div>
                         </div>
-                        <div className="col-lg-3 col-md-6">
+                        {!isDisabledOtherItem ? <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='otherItem'>Other Item:</label>
-                                <input type="text" className="form-control app-input" id="otherItem" required name="otherItem" placeholder="Enter Other Item" disabled={isDisabledOtherItem} value={otherItem} onChange={otherItemChangeHandler} />
+                                <input type="text" className="form-control app-input" id="otherItem" required name="otherItem" placeholder="Enter Other Item" value={otherItem} onChange={otherItemChangeHandler} />
                             </div>
-                        </div>
+                        </div> : null}
                     </div>
                     </div>
                 </div>
