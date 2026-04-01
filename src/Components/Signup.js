@@ -22,7 +22,7 @@ const Singup = () => {
 
         setIsSubmitting(true);
         try {
-            const response = await axios.post('http://localhost:8000/auth/signup', { fullName, email, password });
+            const response = await axios.post('/auth/signup', { fullName, email, password });
             login(response.data.data);
             notify('success', response.data.message);
             navigate('/');

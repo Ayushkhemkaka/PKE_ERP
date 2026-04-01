@@ -26,7 +26,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
 
     const fetchNextSequence = useCallback(async (selectedDate) => {
         try {
-            const response = await axios.get('http://localhost:8000/data/nextSequence', { params: { date: selectedDate } });
+            const response = await axios.get('/data/nextSequence', { params: { date: selectedDate } });
             setBookNumber(response.data.data.bookNumber);
             setSlipNumber(response.data.data.slipNumber);
         } catch (error) {
@@ -36,7 +36,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
 
     const fetchRates = useCallback(async () => {
         try {
-            const response = await axios.get('http://localhost:8000/data/rates');
+            const response = await axios.get('/data/rates');
             setItemRates(response.data.data);
         } catch (error) {
             notify('error', error.response?.data?.message || 'Unable to load item rates.');
@@ -49,7 +49,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
         }
 
         try {
-            const response = await axios.get('http://localhost:8000/data/accounts');
+            const response = await axios.get('/data/accounts');
             setCustomerAccounts(response.data.data);
         } catch (error) {
             notify('error', error.response?.data?.message || 'Unable to load customer accounts.');
@@ -281,7 +281,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
 
         console.log("Input", input)
         const insertData = async () => {
-            await axios.post('http://localhost:8000/data/insert', {
+            await axios.post('/data/insert', {
                 body: input
             }).then(res => {
                 notify('success', res.data.message)

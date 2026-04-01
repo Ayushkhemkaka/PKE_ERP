@@ -19,7 +19,7 @@ const RateManager = () => {
 
     const loadRates = useCallback(async () => {
         try {
-            const response = await axios.get('http://localhost:8000/data/rates');
+            const response = await axios.get('/data/rates');
             setRates(response.data.data);
         } catch (error) {
             notify('error', error.response?.data?.message || 'Unable to load item rates.');
@@ -39,7 +39,7 @@ const RateManager = () => {
         const rate = event.target.rate.value;
 
         try {
-            const response = await axios.post('http://localhost:8000/data/rates', {
+            const response = await axios.post('/data/rates', {
                 itemName,
                 measurementUnit,
                 rate,

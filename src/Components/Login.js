@@ -19,7 +19,7 @@ const Login = () => {
         const password = event.target.password.value;
 
         try {
-            const response = await axios.post('http://localhost:8000/auth/login', { email, password });
+            const response = await axios.post('/auth/login', { email, password });
             login(response.data.data);
             notify('success', response.data.message);
             navigate('/');

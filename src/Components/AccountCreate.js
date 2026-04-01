@@ -17,7 +17,7 @@ const AccountCreate = () => {
         event.preventDefault();
 
         try {
-            const response = await axios.post('http://localhost:8000/data/accounts', {
+            const response = await axios.post('/data/accounts', {
                 ...formState,
                 updatedBy: currentUser?.fullName || currentUser?.email || 'System'
             });

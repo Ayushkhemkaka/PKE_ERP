@@ -41,7 +41,7 @@ const SearchResult = (props) => {
     }
 
     const findById = async (id) => {
-        await axios.get(`http://localhost:8000/data/findById`, {
+        await axios.get(`/data/findById`, {
             "headers": {
                 'Content-Type': 'application/json'
             },
@@ -85,7 +85,7 @@ const SearchResult = (props) => {
 
     const loadHistory = async (id) => {
         try {
-            const res = await axios.get('http://localhost:8000/data/history', {
+            const res = await axios.get('/data/history', {
                 params: { id, mode: props.mode || selectedData?.ordermode || 'normal' }
             });
             setHistoryData(res.data.data);

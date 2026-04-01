@@ -25,7 +25,7 @@ const OrderUpdate = (props)=> {
 
         setIsSaving(true);
         try {
-            const response = await axios.post('http://localhost:8000/data/update', {
+            const response = await axios.post('/data/update', {
                 body: {
                     id: props.data.id,
                     mode: props.mode || props.data.ordermode || 'normal',
@@ -75,7 +75,7 @@ const OrderUpdate = (props)=> {
                 
         const updateData = async() =>{
             setIsSaving(true);
-            await axios.post('http://localhost:8000/data/update' ,{
+            await axios.post('/data/update' ,{
                 body : input
             }).then(res =>{
                 notify('success', res.data.message)

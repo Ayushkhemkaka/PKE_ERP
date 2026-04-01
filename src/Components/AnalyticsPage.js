@@ -19,7 +19,7 @@ const AnalyticsPage = () => {
 
     const loadAnalytics = useCallback(async () => {
         try {
-            const response = await axios.get('http://localhost:8000/data/analytics');
+            const response = await axios.get('/data/analytics');
             setAnalytics(response.data.data);
         } catch (error) {
             notify('error', error.response?.data?.message || 'Unable to load analytics.');

@@ -45,7 +45,7 @@ const SearchOptions = (props) => {
         event.preventDefault()
         let dataToConvert = {}
         const exportData = async () => {
-            await axios.get('http://localhost:8000/data/find', {
+            await axios.get('/data/find', {
                 "params": { ...searchParams, mode: props.mode || 'normal' }
             }).then(res => {
                 dataToConvert = {
@@ -80,7 +80,7 @@ const SearchOptions = (props) => {
         params.mode = props.mode || 'normal'
         setSearchParams(params)
         const fetchData = async () => {
-            await axios.get('http://localhost:8000/data/find', {
+            await axios.get('/data/find', {
                 "params": params
             }).then(res => {
                 let response = res.data.data
@@ -107,7 +107,7 @@ const SearchOptions = (props) => {
             const worksheet = workbook.Sheets[firstSheetName];
             const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
-            const response = await axios.post('http://localhost:8000/data/import', {
+            const response = await axios.post('/data/import', {
                 rows,
                 createdBy: currentUser?.fullName || currentUser?.email || 'System'
             });

@@ -29,6 +29,23 @@ Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
+## Hostinger Deployment
+
+This project is set up to deploy as a single Node.js app on Hostinger:
+
+1. Run `npm install`
+2. Run `npm run build`
+3. Set your environment variables in Hostinger:
+   `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+4. Start the app with `npm start`
+
+Deployment notes:
+
+- `npm start` runs the Express server from [server.js](/server.js)
+- The backend serves the built React app from the `build/` folder
+- Frontend API calls use same-origin routes like `/auth/*` and `/data/*`
+- For local development, CRA uses the `proxy` setting in `package.json` to reach the backend on port `8000`
+
 ### `npm run eject`
 
 **Note: this is a one-way operation. Once you `eject`, you can't go back!**

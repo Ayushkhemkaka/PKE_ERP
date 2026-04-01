@@ -11,7 +11,7 @@ const AccountFetch = () => {
 
     const loadAccounts = useCallback(async () => {
         try {
-            const response = await axios.get('http://localhost:8000/data/account-summary');
+            const response = await axios.get('/data/account-summary');
             setAccounts(response.data.data);
         } catch (error) {
             notify('error', error.response?.data?.message || 'Unable to load account summaries.');
