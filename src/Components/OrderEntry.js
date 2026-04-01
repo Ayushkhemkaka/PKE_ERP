@@ -3,6 +3,7 @@ import moment from 'moment'
 import React, { useCallback, useEffect, useState } from 'react'
 import FinanceDetails from './FinanceDetails.js';
 import { useAppContext } from '../context/AppContext.js';
+import { buildInvoiceHtml, buildPrintableOrder, formatCurrency, getPaymentSummary } from '../utils/receiptUtils.js';
 
 const OrderEntry = ({ mode = 'standard' }) => {
     const { currentUser, notify } = useAppContext();
@@ -151,34 +152,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
         }
     }
 
-    const formatCurrency = (value) => {
-        const numericValue = Number(value || 0)
-        return numericValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    }
-
-    const buildPrintableOrder = (input) => ({
-        invoiceNumber: `${input.bookNumber}/${input.slipNumber}`,
-        name: input.name,
-        source: input.source,
-        item: input.item,
-        quantityDisplay: input.quantity ? `${input.quantity} ${input.measurementUnit}` : (input.measurementUnit || 'Pending'),
-        rate: input.rate,
-        amount: input.amount,
-        freight: input.freight,
-        total: input.totalAmount,
-        date: input.date,
-        paymentStatus: input.paymentStatus,
-        dueAmount: input.paymentStatus === "Due" ? input.dueAmount : 0,
-        customerAccountName: input.customerAccountName || ''
-    })
-
-    const getPaymentSummary = (order) => {
-        return order.paymentStatus === "Due"
-            ? `Due - ${formatCurrency(order.dueAmount)}`
-            : `${order.paymentStatus} - ${formatCurrency(order.dueAmount)}`
-    }
-
-    const printInvoice = (order) => {
+    const printInvoice = async (order) => {
         if (!order) {
             return
         }
@@ -189,59 +163,20 @@ const OrderEntry = ({ mode = 'standard' }) => {
             return
         }
 
-        const paymentLine = getPaymentSummary(order)
-        const customerAccountRow = order.customerAccountName
-            ? `<div class="row"><div class="label">Customer Account</div><div class="value">${order.customerAccountName}</div></div>`
-            : ''
-
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>Invoice ${order.invoiceNumber}</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; color: #1f2933; padding: 32px; }
-                        .sheet { max-width: 760px; margin: 0 auto; border: 1px solid #d8dee4; border-radius: 18px; padding: 28px; }
-                        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-                        .title { font-size: 28px; font-weight: 700; margin: 0; }
-                        .subtitle { color: #52606d; margin-top: 6px; }
-                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
-                        .row { padding: 12px 0; border-bottom: 1px solid #e5e7eb; }
-                        .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7b8794; margin-bottom: 4px; }
-                        .value { font-size: 18px; font-weight: 600; }
-                    </style>
-                </head>
-                <body>
-                    <div class="sheet">
-                        <div class="header">
-                            <div>
-                                <p class="title">P. K. ENTERPRISES</p>
-                                <p class="subtitle">${isB2B ? 'B2B order print view' : 'Order entry print view'}</p>
-                            </div>
-                            <div>
-                                <div class="label">Invoice No</div>
-                                <div class="value">${order.invoiceNumber}</div>
-                            </div>
-                        </div>
-                        <div class="grid">
-                            ${customerAccountRow}
-                            <div class="row"><div class="label">Name</div><div class="value">${order.name}</div></div>
-                            <div class="row"><div class="label">Date</div><div class="value">${order.date}</div></div>
-                            <div class="row"><div class="label">Source</div><div class="value">${order.source}</div></div>
-                            <div class="row"><div class="label">Item</div><div class="value">${order.item}</div></div>
-                            <div class="row"><div class="label">Quantity</div><div class="value">${order.quantityDisplay}</div></div>
-                            <div class="row"><div class="label">Rate</div><div class="value">${formatCurrency(order.rate)}</div></div>
-                            <div class="row"><div class="label">Amount</div><div class="value">${formatCurrency(order.amount)}</div></div>
-                            <div class="row"><div class="label">Freight</div><div class="value">${formatCurrency(order.freight)}</div></div>
-                            <div class="row"><div class="label">Total</div><div class="value">${formatCurrency(order.total)}</div></div>
-                            <div class="row"><div class="label">Payment Status</div><div class="value">${paymentLine}</div></div>
-                        </div>
-                    </div>
-                </body>
-            </html>
-        `)
-        printWindow.document.close()
-        printWindow.focus()
-        printWindow.print()
+        try {
+            await axios.post('/data/receipts/print', {
+                id: order.id,
+                printedBy: currentUser?.fullName || currentUser?.email || 'System'
+            });
+            printWindow.document.write(buildInvoiceHtml(order, isB2B ? 'B2B order print view' : 'Order entry print view'));
+            printWindow.document.close()
+            printWindow.focus()
+            printWindow.print()
+            setLastSubmittedOrder((prev) => prev ? { ...prev, isPrinted: true } : prev)
+        } catch (error) {
+            printWindow.close()
+            notify('error', error.response?.data?.message || 'Unable to update the print status.')
+        }
     }
 
     const formSubmitHandler = (event) => {
@@ -285,7 +220,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
                 body: input
             }).then(res => {
                 notify('success', res.data.message)
-                setLastSubmittedOrder(printableOrder)
+                setLastSubmittedOrder({ ...printableOrder, id: res.data.data.id, orderType: input.orderType, isPrinted: false })
                 resetClickHandler()
                 setOtherMeasurementUnit("")
                 setIsDisabledOtherMeasurnmentUnit(true)

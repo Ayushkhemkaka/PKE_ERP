@@ -14,6 +14,7 @@ import { AppProvider, useAppContext } from './context/AppContext.js';
 import AccountCreate from './Components/AccountCreate.js';
 import AccountFetch from './Components/AccountFetch.js';
 import AnalyticsPage from './Components/AnalyticsPage.js';
+import EmployeeReceiptDesk from './Components/EmployeeReceiptDesk.js';
 
 function AppRoutes() {
   const { currentUser } = useAppContext();
@@ -36,6 +37,7 @@ function AppRoutes() {
             <Route path='/accounts/create' element={currentUser ? <AccountCreate /> : <Navigate to="/login" replace />} />
             <Route path='/accounts/fetch' element={currentUser ? <AccountFetch /> : <Navigate to="/login" replace />} />
             <Route path='/analytics' element={currentUser ? <AnalyticsPage /> : <Navigate to="/login" replace />} />
+            <Route path='/employee-receipts' element={currentUser ? <EmployeeReceiptDesk /> : <Navigate to="/login" replace />} />
           </Routes>
         </div>
       </main>

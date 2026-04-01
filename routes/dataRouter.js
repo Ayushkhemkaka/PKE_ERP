@@ -8,6 +8,7 @@ import { getOrderHistory } from '../controllers/history.js';
 import { createCustomerAccount, listCustomerAccounts } from '../controllers/customerAccounts.js';
 import { getAccountSummary } from '../controllers/accountSummary.js';
 import { getAnalytics } from '../controllers/analytics.js';
+import { listReceipts, markReceiptPrinted } from '../controllers/receipts.js';
 
 const dataRouter = Router();
 
@@ -25,5 +26,7 @@ dataRouter.get('/accounts', listCustomerAccounts);
 dataRouter.post('/accounts', createCustomerAccount);
 dataRouter.get('/account-summary', getAccountSummary);
 dataRouter.get('/analytics', getAnalytics);
+dataRouter.get('/receipts', listReceipts);
+dataRouter.post('/receipts/print', markReceiptPrinted);
 
 export {dataRouter}

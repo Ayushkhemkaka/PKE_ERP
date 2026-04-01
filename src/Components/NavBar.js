@@ -55,6 +55,9 @@ const NavBar = () => {
               <li className="nav-item">
                 <Link className="nav-link" to="/analytics" style={{ textDecoration: 'none' }}>Analytics</Link>
               </li>
+              <li className="nav-item">
+                <Link className="nav-link" to="/employee-receipts" style={{ textDecoration: 'none' }}>Receipt Desk</Link>
+              </li>
               <li className="nav-item nav-user-chip">
                 <span className="nav-link">{currentUser.fullName}</span>
               </li>
