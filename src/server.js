@@ -1,10 +1,12 @@
 //To run the app concurrently
 //"concurrently \"react-scripts start\" \"cd backend && nodemon server\"",
 
+import 'dotenv/config';
 import express from 'express';
 import compression from 'compression';
 import cors from 'cors';
 import { dataRouter } from '../routes/dataRouter.js';
+import { authRouter } from '../routes/authRouter.js';
 import bodyParser from 'body-parser';
 
 var corsOptions = {
@@ -23,6 +25,7 @@ app.get("/", (req, res) => {
     res.send("Api Working!");
 });
 
+app.use("/auth", authRouter)
 app.use("/data" , dataRouter)
 
 app.listen(port, () => {

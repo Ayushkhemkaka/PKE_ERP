@@ -1,0 +1,65 @@
+import { query } from "../configs/dbConn.js";
+import { sendError, sendSuccess } from "../utils/apiResponse.js";
+import { logUserWork } from "../utils/workTracking.js";
+
+const listCustomerAccounts = async (_req, res) => {
+    try {
+        const rows = await query(
+            `SELECT id, account_name, site, contact_name, phone, is_active, created_at, updated_at
+             FROM customer_account
+             WHERE is_active = 1
+             ORDER BY account_name ASC`
+        );
+        sendSuccess(res, "Customer accounts fetched successfully.", rows);
+    } catch (error) {
+        console.error('List customer accounts failed', error);
+        sendError(res, "Unable to fetch customer accounts.", 500);
+    }
+}
+
+const createCustomerAccount = async (req, res) => {
+    const reqBody = req.body || {};
+    const accountName = reqBody.accountName?.trim();
+
+    if (!accountName) {
+        sendError(res, "Customer account name is required.");
+        return;
+    }
+
+    const site = reqBody.site?.trim() || '';
+    const contactName = reqBody.contactName?.trim() || '';
+    const phone = reqBody.phone?.trim() || '';
+    const updatedBy = reqBody.updatedBy || 'System';
+
+    try {
+        const result = await query(
+            `INSERT INTO customer_account(account_name, site, contact_name, phone, created_by, updated_by)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [accountName, site, contactName, phone, updatedBy, updatedBy]
+        );
+
+        await logUserWork({
+            userName: updatedBy,
+            userEmail: updatedBy.includes('@') ? updatedBy : null,
+            actionType: 'create_customer_account',
+            entityType: 'customer_account',
+            entityId: String(result.insertId),
+            details: {
+                accountName,
+                site,
+                contactName
+            }
+        });
+
+        sendSuccess(res, "Customer account created successfully.", { id: result.insertId });
+    } catch (error) {
+        console.error('Create customer account failed', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            sendError(res, "This customer account already exists.", 409);
+            return;
+        }
+        sendError(res, "Unable to create customer account.", 500);
+    }
+}
+
+export { listCustomerAccounts, createCustomerAccount };

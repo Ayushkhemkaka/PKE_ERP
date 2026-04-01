@@ -1,92 +1,52 @@
-import React from 'react'
+import React, { useState } from 'react'
+import Checkbox from './CheckBox.js';
 
-function SearchColumn(props) {
+const SearchColumn = (props) => {
+    const [columns,setColumns] = useState(props.columnList)
+
+    const checkboxChangeHandler = (id,value) =>{
+
+        console.log(value)
+        let col = columns
+        if(value === false){
+            col.push(id)
+        }else{
+            let index = col.indexOf(id)            
+            col.splice(index,1)
+        }
+        console.log("****" + col) 
+        setColumns(col)
+        props.SearchColumnChangeHandler(col)
+    }
 
     return (<div className='mt-2 mb-2' >
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="BookNumber" value="BookNumber" />
-        <label className="form-check-label" htmlFor="BookNumber">Book Number</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="SlipNumber" value="SlipNumber" />
-        <label className="form-check-label" htmlFor="SlipNumber">Slip Number</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Source" value="Source" />
-        <label className="form-check-label" htmlFor="Source">Source</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Date" value="Date" />
-        <label className="form-check-label" htmlFor="Date">Date</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Name" value="Name" />
-        <label className="form-check-label" htmlFor="Name">Name</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Site" value="Site" />
-        <label className="form-check-label" htmlFor="Site">Site</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="LooryNumber" value="LooryNumber" />
-        <label className="form-check-label" htmlFor="LooryNumber">Lorry Number</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Item" value="Item" />
-        <label className="form-check-label" htmlFor="Item">Item</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="MeasurementUnit" value="MeasurementUnit" />
-        <label className="form-check-label" htmlFor="MeasurementUnit">Measurement Unit</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Quantity" value="Quantity" />
-        <label className="form-check-label" htmlFor="Quantity">Quantity</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Rate" value="Rate" />
-        <label className="form-check-label" htmlFor="Rate">Rate</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Amount" value="Amount" />
-        <label className="form-check-label" htmlFor="Amount">Amount</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Discount" value="Discount" />
-        <label className="form-check-label" htmlFor="Discount">Discount</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="Freight" value="Freight" />
-        <label className="form-check-label" htmlFor="Freight">Freight</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="TaxPercent" value="TaxPercent" />
-        <label className="form-check-label" htmlFor="TaxPercent">Tax Percent</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="TaxAmount" value="TaxAmount" />
-        <label className="form-check-label" htmlFor="TaxAmount">Tax Amount</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="TotalAmount" value="TotalAmount" />
-        <label className="form-check-label" htmlFor="TotalAmount">Total Amount</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="PaymentStatus" value="PaymentStatus" />
-        <label className="form-check-label" htmlFor="PaymentStatus">Payment Status</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="DueAmount" value="DueAmount" />
-        <label className="form-check-label" htmlFor="DueAmount">Due Amount</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="CashCredit" value="CashCredit" />
-        <label className="form-check-label" htmlFor="CashCredit">Cash Credit</label>
-    </div>
-    <div className="form-check form-check-inline">
-        <input className="form-check-input" type="checkbox" id="BankCredit" value="BankCredit" />
-        <label className="form-check-label" htmlFor="BankCredit">Bank Credit</label>
-    </div>
+        <div className="column-chip-grid">
+            <Checkbox name={"Book Number"} id={"BookNumber"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Slip Number"} id={"SlipNumber"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Source"} id={"Source"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            {/* <Checkbox name={"Date"} id={"Date"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Name"} id={"Name"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/> */}
+            <Checkbox name={"Site"} id={"Site"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            {/* <Checkbox name={"Lorry Number"} id={"LorryNumber"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Item"} id={"Item"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/> */}
+            <Checkbox name={"Measurement Unit"} id={"MeasurementUnit"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/>
+            {/* <Checkbox name={"Quantity"} id={"Quantity"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/> */}
+            <Checkbox name={"Rate"} id={"Rate"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Amount"} id={"Amount"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Discount"} id={"Discount"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Freight"} id={"Freight"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Tax Percent"} id={"TaxPercent"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Tax Amount"} id={"TaxAmount"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Total Amount"} id={"TotalAmount"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Payment Status"} id={"PaymentStatus"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Order Status"} id={"orderStatus"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Due Amount"} id={"DueAmount"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Due On Create"} id={"due_on_create"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Due Paid"} id={"due_paid"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Cash Credit"} id={"CashCredit"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Bank Credit"} id={"BankCredit"} default={true} checkboxChangeHandler= {checkboxChangeHandler}/>
+            <Checkbox name={"Customer Account"} id={"customerAccountName"} default={false} checkboxChangeHandler= {checkboxChangeHandler}/>
+        </div>
     </div>)
 }
 

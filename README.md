@@ -76,15 +76,15 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 Create Table Self.entry (
     Id varchar(25) Primary key,
-    BookNumber Number Not Null,
-    SlipNumber Number Not Null,
+    BookNumber Integer Not Null,
+    SlipNumber Integer Not Null,
     Source varchar(25) Not Null,
     Date Date not null, 
     Name Varchar(255) Not Null,
     Site Varchar(244) Not Null,
-    LooryNumber varchar(10) Not Null,
-    Item varchar(25) Not null,
-    MeasurementUnit varchar(10) Not Null,
+    LorryNumber varchar(14) Not Null,
+    Item varchar(255) Not null,
+    MeasurementUnit varchar(50) Not Null,
     Quantity Decimal(8,3) Not Null,
     Rate Decimal(10,2) ,
     Amount Decimal(10,2) ,
@@ -97,8 +97,37 @@ Create Table Self.entry (
     CashCredit Decimal(10,2),
     BankCredit Decimal(10,2),
     DueAmount Decimal(10,2),
-    lastUpdate Date not Null,
-    createdDate Date Not Null,
+    LastUpdate timestamp(0) with time zone DEFAULT (Current_Timestamp),
+    createdDate timestamp(0) with time zone DEFAULT (Current_Timestamp),
     lastUpdatedBy varchar(255) Not Null,
     createdBy varchar(255) Not Null
 )
+
+
+Create Table Self.history (
+    Id Serial varchar(25) Primary key,
+    EntryId varchar(25) 
+    ADD CONSTRAINT fk_history_entryId
+    FOREIGN KEY (entryId)
+    REFERENCES self.entry(id);
+	Field varchar(50) Not Null,
+	OldValue varchar(255) Not Null,
+	NewValue varchar(255) Not Null,
+    createdDate timestamp(0) with time zone DEFAULT (Current_Timestamp),
+    createdBy varchar(255) Not Null
+)
+
+TRIGGERS:
+------------------------
+    CREATE TRIGGER self_lastUpdate BEFORE INSERT OR UPDATE ON self.entry FOR EACH ROW EXECUTE FUNCTION self.entry_lastUpdate_timestamp();
+
+FUNCTIONS:
+----------------------
+	CREATE OR REPLACE FUNCTION self.entry_lastUpdate_timestamp() RETURNS TRIGGER LANGUAGE PLPGSQL AS
+	$$
+	BEGIN
+		NEW.lastupdate := current_timestamp;
+		RETURN NEW;
+	END;
+	$$
+	;

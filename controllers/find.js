@@ -1,62 +1,111 @@
-import { pool } from "../configs/dbConn.js"
+import { query as executeQuery } from "../configs/dbConn.js"
+import { sendError, sendSuccess } from "../utils/apiResponse.js";
+import { getOrderTableName, normalizeOrderMode, ORDER_MODES } from "../utils/orderTables.js";
 
-const find = (req,res) =>{
+const baseColumns = ['id', 'date', 'name', 'lorrynumber', 'item', 'quantity'];
+const allowedColumns = new Set([
+    'booknumber', 'slipnumber', 'source', 'site', 'measurementunit', 'rate',
+    'amount', 'discount', 'freight', 'taxpercent', 'taxamount',
+    'totalamount', 'paymentstatus', 'dueamount', 'cashcredit', 'bankcredit',
+    'ordertype', 'customeraccountname', 'due_on_create', 'due_paid', 'orderstatus'
+]);
 
-    console.log(req.params)
-    let colList = ['booknumber' , 'date' ,'name' ,'lorryNumber' ,'item' ,'paymentstatus' ,'totalamount' ,'dueamount','paidamount']
-    let col = colList.join(",")
+const normalizeRows = (rows) => rows.map((row) => ({
+    ...row,
+    date: row.date ? new Date(row.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : row.date,
+    key: row.id,
+    selected: false
+}));
 
-    let conList = []
-    let valList = []
-    if(req.query.bookNumber != null && req.query.bookNumber !== ""){
-        conList.push("booknumber = $" + (conList.length+1))
-        valList.push(req.query.booknumber)
-    }
-    if(req.query.date != null && req.query.date !== ""){
-        conList.push("date = $" + (conList.length+1))
-        valList.push(req.query.date)
-    }
-    if(req.query.name != null && req.query.name !== ""){
-        conList.push("name = $" + (conList.length+1))
-        valList.push(req.query.name)
-    }
-    if(req.query.lorryNumber != null && req.query.lorryNumber !== ""){
-        conList.push("lorryNumber = $" + (conList.length+1))
-        valList.push(req.query.lorryNumber)
-    }
-    if(req.query.paymentStatus != null && req.query.paymentStatus !== ""){
-        conList.push("paymentstatus = $" + (conList.length+1))
-        valList.push(req.query.paymentStatus)
-    }
-    if(req.query.item != null && req.query.item !== ""){
-        conList.push("item = $" + (conList.length+1))
-        valList.push(req.query.item)
-    }
-    let con = conList.join(" and ")
-    console.log(conList)
-    let query = conList.length === 0? 'SELECT '+col+' FROM self.entry': 'SELECT '+col+' FROM self.entry WHERE ' +con
-    console.log(query)
-    pool.connect((err, client, release) => {
-        if (err) {
-            return console.error('Error acquiring client', err.stack)
-        }
-        client.query(query,valList,(err, result) => {
-            release()
-            if (err) {
-                return console.error('Error executing query', err.stack)
-            }
-            console.log(result.rows)
-            let response = result.rows;
-            for(let i of response){
-                let date = i['date'];
-                let dateIST = date.toLocaleString(undefined, {timeZone: 'Asia/Kolkata'}).split(",")[0];
-                console.log(dateIST)
-                i['date'] = dateIST
-            }
-            console.log()
-            res.send(result.rows)
-        })
-    })
+const getSelectedColumns = (columns) => {
+    const rawColumns = Array.isArray(columns) ? columns : [columns].filter(Boolean);
+    const normalized = rawColumns
+        .flatMap((value) => typeof value === 'string' ? value.split(',') : [])
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => allowedColumns.has(value));
+
+    return [...baseColumns, ...new Set(normalized)];
 }
 
-export {find}
+const find = async (req,res) =>{
+    const mode = normalizeOrderMode(req.query.mode);
+    const selectedColumns = getSelectedColumns(req.query.columns);
+    const conditions = [];
+    const values = [];
+    const tableName = mode === ORDER_MODES.all ? 'entry' : getOrderTableName(mode);
+
+    if(req.query.bookNumber){
+        conditions.push(`booknumber = ?`);
+        values.push(req.query.bookNumber);
+    }
+    if(req.query.dateStart){
+        conditions.push(`date >= ?`);
+        values.push(req.query.dateStart);
+    }
+    if(req.query.dateEnd){
+        conditions.push(`date <= ?`);
+        values.push(req.query.dateEnd);
+    }
+    if(req.query.name){
+        conditions.push(`LOWER(name) LIKE LOWER(?)`);
+        values.push(`%${req.query.name}%`);
+    }
+    if(req.query.lorryNumber){
+        conditions.push(`LOWER(lorrynumber) LIKE LOWER(?)`);
+        values.push(`%${req.query.lorryNumber}%`);
+    }
+    if(req.query.paymentStatus){
+        conditions.push(`paymentstatus = ?`);
+        values.push(req.query.paymentStatus);
+    }
+    if(req.query.item){
+        conditions.push(`LOWER(item) LIKE LOWER(?)`);
+        values.push(`%${req.query.item}%`);
+    }
+    if(req.query.source){
+        conditions.push(`LOWER(source) LIKE LOWER(?)`);
+        values.push(`%${req.query.source}%`);
+    }
+    if(req.query.customerAccountName){
+        conditions.push(`LOWER(customeraccountname) LIKE LOWER(?)`);
+        values.push(`%${req.query.customerAccountName}%`);
+    }
+
+    const sql = `
+        SELECT ${selectedColumns.join(', ')}
+        FROM ${tableName}
+        ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+        ORDER BY date DESC, id DESC
+    `;
+
+    try {
+        const result = await executeQuery(sql, values);
+        sendSuccess(res, "Orders fetched successfully.", normalizeRows(result).map((row) => ({ ...row, ordermode: mode })));
+    } catch (error) {
+        console.error('Find failed', error);
+        sendError(res, "Unable to fetch order data.", 500);
+    }
+}
+
+const findById = async (req,res) =>{
+    const id = req.query.Id;
+    const mode = normalizeOrderMode(req.query.mode);
+    if (!id) {
+        sendError(res, "Order id is required.");
+        return;
+    }
+
+    try {
+        const tableName = mode === ORDER_MODES.all ? 'entry' : getOrderTableName(mode);
+        const result = await executeQuery(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+        if (result.length === 0) {
+            sendError(res, "Order not found.", 404);
+            return;
+        }
+        sendSuccess(res, "Order fetched successfully.", normalizeRows(result).map((row) => ({ ...row, ordermode: mode })));
+    } catch (error) {
+        console.error('Find by id failed', error);
+        sendError(res, "Unable to fetch order details.", 500);
+    }
+}
+export {find, findById}
