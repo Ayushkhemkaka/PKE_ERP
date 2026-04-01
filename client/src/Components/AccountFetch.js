@@ -40,7 +40,7 @@ const AccountFetch = () => {
                         <thead>
                             <tr>
                                 <th>Account</th>
-                                <th>Site</th>
+                                <th>Address</th>
                                 <th>Orders</th>
                                 <th>Pending Pricing</th>
                                 <th>GSTIN</th>
@@ -59,7 +59,7 @@ const AccountFetch = () => {
                                         <strong>{account.account_name}</strong>
                                         <div className="table-subtext">{account.contact_name || 'No contact added'}</div>
                                     </td>
-                                    <td>{account.site || '-'}</td>
+                                    <td>{account.address || '-'}</td>
                                     <td>{account.order_count}</td>
                                     <td>{account.pending_order_count}</td>
                                     <td>{account.gstin || '-'}</td>

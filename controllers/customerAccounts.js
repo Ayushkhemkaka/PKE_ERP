@@ -5,7 +5,7 @@ import { logUserWork } from "../utils/workTracking.js";
 const listCustomerAccounts = async (_req, res) => {
     try {
         const rows = await query(
-            `SELECT id, account_name, site, contact_name, phone, gstin, is_active, created_at, updated_at
+            `SELECT id, account_name, address, contact_name, phone, gstin, is_active, created_at, updated_at
              FROM customer_account
              WHERE is_active = 1
              ORDER BY account_name ASC`
@@ -26,20 +26,22 @@ const createCustomerAccount = async (req, res) => {
         return;
     }
 
-    const site = reqBody.site?.trim() || '';
+    const address = reqBody.address?.trim() || '';
     const contactName = reqBody.contactName?.trim() || '';
     const phone = reqBody.phone?.trim() || '';
     const gstin = reqBody.gstin?.trim() || '';
     const updatedBy = reqBody.updatedBy || 'System';
+    const updatedByUserId = reqBody.updatedByUserId || null;
 
     try {
         const result = await query(
-            `INSERT INTO customer_account(account_name, site, contact_name, phone, gstin, created_by, updated_by)
+            `INSERT INTO customer_account(account_name, address, contact_name, phone, gstin, created_by, updated_by)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [accountName, site, contactName, phone, gstin, updatedBy, updatedBy]
+            [accountName, address, contactName, phone, gstin, updatedBy, updatedBy]
         );
 
         await logUserWork({
+            userId: updatedByUserId,
             userName: updatedBy,
             userEmail: updatedBy.includes('@') ? updatedBy : null,
             actionType: 'create_customer_account',
@@ -47,7 +49,7 @@ const createCustomerAccount = async (req, res) => {
             entityId: String(result.insertId),
             details: {
                 accountName,
-                site,
+                address,
                 contactName,
                 gstin
             }

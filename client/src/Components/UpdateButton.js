@@ -3,7 +3,6 @@ import React from 'react'
 const UpdateButton = (props) => {
     const updateClickHandler = () =>{
         props.updateStatus(props.data);
-        props.disableCheckbox(true)
     }
 
     return (

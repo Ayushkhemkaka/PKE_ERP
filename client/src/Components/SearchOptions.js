@@ -1,8 +1,6 @@
-import React from 'react'
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react'
 import axios from 'axios';
 import SearchColumn from './SearchColumn.js';
-import csvDownload from 'json-to-csv-export'
 import { useAppContext } from '../context/AppContext.js';
 import * as XLSX from 'xlsx';
 
@@ -13,32 +11,62 @@ const SearchOptions = (props) => {
             ? ["MeasurementUnit", "gross", "tare", "net", "remarks", "PaymentStatus", "DueAmount", "customerAccountName"]
             : ["MeasurementUnit", "gross", "tare", "net", "remarks", "PaymentStatus", "DueAmount"]
     ));
-    const [isDisabledOtherItem, setIsDisabledOtherItem] = useState(true);
     const [item, setItem] = useState("")
-    const [otherItem, setOtherItem] = useState("")
+    const [itemOptions, setItemOptions] = useState([])
     const [searchParams, setSearchParams] = useState({})
     const [exportDisabled, setExportDisabled] = useState(true)
     const isB2B = props.mode === 'b2b';
-    const modeLabel = isB2B ? 'B2B Orders' : 'General Orders';
-    const modeSubtitle = isB2B
-        ? 'Account-linked orders with the same running book/slip sequence as general entries.'
-        : 'General orders sharing the same continuous book/slip sequence as B2B entries.';
+    const columnLabelMap = {
+        booknumber: 'Book Number',
+        slipnumber: 'Slip Number',
+        source: 'Source',
+        site: 'Site',
+        measurementunit: 'Measurement Unit',
+        gross: 'Gross',
+        tare: 'Tare',
+        net: 'Net',
+        rate: 'Rate',
+        amount: 'Amount',
+        discount: 'Discount',
+        freight: 'Freight',
+        remarks: 'Remarks',
+        customergstin: 'Customer GSTIN',
+        taxpercent: 'Tax Percent',
+        taxamount: 'Tax Amount',
+        totalamount: 'Total Amount',
+        paymentstatus: 'Payment Status',
+        orderstatus: 'Order Status',
+        is_printed: 'Is Printed',
+        printed_by: 'Printed By',
+        dueamount: 'Due Amount',
+        due_on_create: 'Due On Create',
+        due_paid: 'Due Paid',
+        cashcredit: 'Cash Credit',
+        bankcredit: 'Bank Credit',
+        customeraccountname: 'Customer Account'
+    };
 
     const itemChangeHandler = (event) => {
-        let itemValue = event.target.value
-        setItem(itemValue)
-        if (itemValue === "Other") {
-            setIsDisabledOtherItem(false)
-        } else {
-            setIsDisabledOtherItem(true)
-            setOtherItem("")
-        }
+        setItem(event.target.value)
     }
 
-    const otherItemChangeHandler = (event) => {
-        let otherItemValue = event.target.value
-        setOtherItem(otherItemValue)
-    }
+    useEffect(() => {
+        const loadItems = async () => {
+            try {
+                const response = await axios.get('/data/items/catalog');
+                const nextItems = (response.data.data || [])
+                    .filter((itemRow) => itemRow.isActive)
+                    .map((itemRow) => itemRow.itemName)
+                    .sort((left, right) => left.localeCompare(right));
+                setItemOptions(nextItems);
+            } catch (error) {
+                notify('error', error.response?.data?.message || 'Unable to load item list.');
+            }
+        };
+
+        loadItems();
+    }, [notify]);
+
     const SearchColumnChangeHandler = (updatedCloumnList) => {
         console.log(updatedCloumnList)
         console.log(columnList)
@@ -47,20 +75,34 @@ const SearchOptions = (props) => {
 
     const exportClickHandler = (event) => {
         event.preventDefault()
-        let dataToConvert = {}
         const exportData = async () => {
             await axios.get('/data/find', {
                 "params": { ...searchParams, mode: props.mode || 'normal' }
             }).then(res => {
-                dataToConvert = {
-                    data: res.data.data,
-                    filename: 'export_data.csv',
-                    delimiter: ',',
-                    headers: ['Id', 'Date', 'Name', 'Lorry Number', 'Item', 'Quantity', ...columnList, "Id", 'Selected']
-                }
-                csvDownload(dataToConvert)
+                const rows = res.data.data.map((row) => {
+                    const exportRow = {
+                        'Id': row.id,
+                        'Date': row.date?.split?.('T')?.[0] || row.date || '',
+                        'Name': row.name || '',
+                        'Lorry Number': row.lorrynumber || '',
+                        'Item': row.item || '',
+                        'Quantity': row.quantity ?? ''
+                    };
+
+                    columnList.forEach((column) => {
+                        const key = column.toLowerCase();
+                        exportRow[columnLabelMap[key] || column] = row[key] ?? '';
+                    });
+
+                    return exportRow;
+                });
+
+                const worksheet = XLSX.utils.json_to_sheet(rows);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, isB2B ? 'B2B Orders' : 'Orders');
+                XLSX.writeFile(workbook, `${isB2B ? 'b2b_orders' : 'orders'}_export.xlsx`);
                 setExportDisabled(true)
-                notify('success', 'Export file prepared successfully.')
+                notify('success', 'Excel file prepared successfully.')
             }).catch(err => {
                 notify('error', err.response?.data?.message || 'Unable to export orders.')
             });
@@ -71,7 +113,9 @@ const SearchOptions = (props) => {
     const findClickHandler = (event) => {
         event.preventDefault()
         const params = {}
+        params.id = event.target.invoiceId.value
         params.bookNumber = event.target.bookNumber.value
+        params.slipNumber = event.target.slipNumber.value
         params.dateStart = event.target.dateStart.value
         params.dateEnd = event.target.dateEnd.value
         params.source = event.target.source.value
@@ -113,7 +157,8 @@ const SearchOptions = (props) => {
 
             const response = await axios.post('/data/import', {
                 rows,
-                createdBy: currentUser?.fullName || currentUser?.email || 'System'
+                createdBy: currentUser?.fullName || currentUser?.email || 'System',
+                createdByUserId: currentUser?.id || null
             });
 
             notify('success', `${response.data.message} Imported ${response.data.data.count} rows.`);
@@ -135,23 +180,6 @@ const SearchOptions = (props) => {
                 </div>
                 <div className="page-badge">{isB2B ? 'B2B search' : 'Search + export'}</div>
             </div>
-            <div className="fetch-overview-grid">
-                <div className="fetch-overview-card fetch-overview-card-primary">
-                    <span>Current View</span>
-                    <strong>{modeLabel}</strong>
-                    <small>{modeSubtitle}</small>
-                </div>
-                <div className="fetch-overview-card">
-                    <span>Numbering Rule</span>
-                    <strong>Shared book and serial flow</strong>
-                    <small>Book number and slip number continue across normal and B2B orders together.</small>
-                </div>
-                <div className="fetch-overview-card">
-                    <span>Export Status</span>
-                    <strong>{exportDisabled ? 'Run a search first' : 'Ready to export'}</strong>
-                    <small>Exports always respect the currently selected order type and visible columns.</small>
-                </div>
-            </div>
             <form onSubmit={findClickHandler}>
                 <div className="section-card fetch-filter-card">
                     <div className="section-card-header">
@@ -164,8 +192,20 @@ const SearchOptions = (props) => {
                     <div className='row g-3'>
                         <div className="col-lg-3 col-md-6">
                             <div className="app-field">
+                                <label className="form-label" htmlFor='invoiceId'>Invoice Id:</label>
+                                <input className="form-control app-input" type="number" id="invoiceId" name="invoiceId" placeholder='System invoice id' />
+                            </div>
+                        </div>
+                        <div className="col-lg-3 col-md-6">
+                            <div className="app-field">
                                 <label className="form-label" htmlFor='bookNumber'>Book Number: </label>
                                 <input className="form-control app-input" type="number" id="bookNumber" name="bookNumber" placeholder='Book Number of Order' />
+                            </div>
+                        </div>
+                        <div className="col-lg-3 col-md-6">
+                            <div className="app-field">
+                                <label className="form-label" htmlFor='slipNumber'>Serial Number:</label>
+                                <input className="form-control app-input" type="number" id="slipNumber" name="slipNumber" placeholder='Slip / serial number' />
                             </div>
                         </div>
                         <div className="col-lg-3 col-md-6">
@@ -227,23 +267,10 @@ const SearchOptions = (props) => {
                                 <label className="form-label" htmlFor='item'>Item:</label>
                                 <select id="item" className="form-select app-input" name="item" value={item} onChange={itemChangeHandler}>
                                     <option value=''></option>
-                                    <option value="10mm">10 mm Chips</option>
-                                    <option value="20mm">20 mm Chips</option>
-                                    <option value="Dust">Dust</option>
-                                    <option value="Sand">Sand</option>
-                                    <option value="Local Sand">Local Sand</option>
-                                    <option value="Metal">Metal</option>
-                                    <option value="GSB">GSB</option>
-                                    <option value="Other">Others</option>
+                                    {itemOptions.map((itemName) => <option key={itemName} value={itemName}>{itemName}</option>)}
                                 </select>
                             </div>
                         </div>
-                        {!isDisabledOtherItem ? <div className="col-lg-3 col-md-6">
-                            <div className="app-field">
-                                <label className="form-label" htmlFor='otherItem'>Other Item:</label>
-                                <input type="text" className="form-control app-input" id="otherItem" required name="otherItem" placeholder="Enter Other Item" value={otherItem} onChange={otherItemChangeHandler} />
-                            </div>
-                        </div> : null}
                     </div>
                     </div>
                 </div>

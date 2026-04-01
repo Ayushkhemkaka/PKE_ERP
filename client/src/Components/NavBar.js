@@ -1,10 +1,82 @@
-import React from 'react'
-import { NavLink as Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react'
+import { NavLink as Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext.js';
 
 const NavBar = () => {
   const { currentUser, logout, notify } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [openMenu, setOpenMenu] = useState('');
+
+  const openMenuHandler = (menuKey) => {
+    setOpenMenu(menuKey);
+  };
+
+  const closeMenuHandler = () => {
+    setOpenMenu('');
+  };
+
+  const getCashLabel = () => {
+    const searchParams = new URLSearchParams(location.search);
+    const dueMode = searchParams.get('mode');
+    if (location.pathname === '/orderentry') {
+      return 'Cash: Entry';
+    }
+    if (location.pathname === '/orderfetch') {
+      return 'Cash: Fetch';
+    }
+    if (location.pathname === '/cash/due' || (location.pathname === '/due-accounts' && dueMode === 'normal')) {
+      return 'Cash: Due';
+    }
+    if (location.pathname === '/cash/history') {
+      return 'Cash: History';
+    }
+    return 'Cash';
+  };
+
+  const getB2BLabel = () => {
+    const searchParams = new URLSearchParams(location.search);
+    const dueMode = searchParams.get('mode');
+    if (location.pathname === '/b2borderentry') {
+      return 'B2B: Entry';
+    }
+    if (location.pathname === '/b2borderfetch') {
+      return 'B2B: Fetch';
+    }
+    if (location.pathname === '/b2b/due' || (location.pathname === '/due-accounts' && dueMode !== 'normal')) {
+      return 'B2B: Due';
+    }
+    if (location.pathname === '/b2b/history') {
+      return 'B2B: History';
+    }
+    return 'B2B';
+  };
+
+  const getAccountsLabel = () => {
+    if (location.pathname === '/accounts/create') {
+      return 'Accounts: Create';
+    }
+    if (location.pathname === '/accounts/fetch') {
+      return 'Accounts: Fetch';
+    }
+    return 'Accounts';
+  };
+
+  const getItemsLabel = () => {
+    if (location.pathname === '/items/add' || location.pathname === '/items') {
+      return 'Items: Add';
+    }
+    if (location.pathname === '/items/units') {
+      return 'Items: Units';
+    }
+    if (location.pathname === '/items/rates') {
+      return 'Items: Rates';
+    }
+    if (location.pathname === '/items/status') {
+      return 'Items: Status';
+    }
+    return 'Items';
+  };
 
   const logoutHandler = () => {
     logout();
@@ -31,29 +103,47 @@ const NavBar = () => {
               <li className="nav-item">
                 <Link className="nav-link" to="/" style={{ textDecoration: 'none' }}>Dashboard</Link>
               </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/orderentry" style={{ textDecoration: 'none' }}>Order Entry</Link>
+              <li className={`nav-item nav-group ${openMenu === 'general' ? 'nav-group-open' : ''}`} onMouseEnter={() => openMenuHandler('general')} onMouseLeave={closeMenuHandler}>
+                <button type="button" className="nav-link nav-group-trigger" onFocus={() => openMenuHandler('general')} aria-expanded={openMenu === 'general'}>
+                  {getCashLabel()}
+                </button>
+                {openMenu === 'general' ? <div className="nav-group-menu">
+                  <Link className="nav-group-link" to="/orderentry" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Order Entry</Link>
+                  <Link className="nav-group-link" to="/orderfetch" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Order Fetch</Link>
+                  <Link className="nav-group-link" to="/cash/due" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Due Accounts</Link>
+                  <Link className="nav-group-link" to="/cash/history" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Invoice History</Link>
+                </div> : null}
               </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/b2borderentry" style={{ textDecoration: 'none' }}>B2B Order</Link>
+              <li className={`nav-item nav-group ${openMenu === 'b2b' ? 'nav-group-open' : ''}`} onMouseEnter={() => openMenuHandler('b2b')} onMouseLeave={closeMenuHandler}>
+                <button type="button" className="nav-link nav-group-trigger" onFocus={() => openMenuHandler('b2b')} aria-expanded={openMenu === 'b2b'}>
+                  {getB2BLabel()}
+                </button>
+                {openMenu === 'b2b' ? <div className="nav-group-menu">
+                  <Link className="nav-group-link" to="/b2borderentry" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Order Entry</Link>
+                  <Link className="nav-group-link" to="/b2borderfetch" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Order Fetch</Link>
+                  <Link className="nav-group-link" to="/b2b/due" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Due Accounts</Link>
+                  <Link className="nav-group-link" to="/b2b/history" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Invoice History</Link>
+                </div> : null}
               </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/orderfetch" style={{ textDecoration: 'none' }}>Order Fetch</Link>
+              <li className={`nav-item nav-group ${openMenu === 'accounts' ? 'nav-group-open' : ''}`} onMouseEnter={() => openMenuHandler('accounts')} onMouseLeave={closeMenuHandler}>
+                <button type="button" className="nav-link nav-group-trigger" onFocus={() => openMenuHandler('accounts')} aria-expanded={openMenu === 'accounts'}>
+                  {getAccountsLabel()}
+                </button>
+                {openMenu === 'accounts' ? <div className="nav-group-menu">
+                  <Link className="nav-group-link" to="/accounts/create" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Create Account</Link>
+                  <Link className="nav-group-link" to="/accounts/fetch" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Account Fetch</Link>
+                </div> : null}
               </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/b2borderfetch" style={{ textDecoration: 'none' }}>B2B Fetch</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/rates" style={{ textDecoration: 'none' }}>Rates</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/accounts/create" style={{ textDecoration: 'none' }}>Create Account</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/accounts/fetch" style={{ textDecoration: 'none' }}>Account Fetch</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/due-accounts" style={{ textDecoration: 'none' }}>Due Accounts</Link>
+              <li className={`nav-item nav-group ${openMenu === 'items' ? 'nav-group-open' : ''}`} onMouseEnter={() => openMenuHandler('items')} onMouseLeave={closeMenuHandler}>
+                <button type="button" className="nav-link nav-group-trigger" onFocus={() => openMenuHandler('items')} aria-expanded={openMenu === 'items'}>
+                  {getItemsLabel()}
+                </button>
+                {openMenu === 'items' ? <div className="nav-group-menu">
+                  <Link className="nav-group-link" to="/items/add" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Add Item</Link>
+                  <Link className="nav-group-link" to="/items/units" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Units</Link>
+                  <Link className="nav-group-link" to="/items/rates" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Rates</Link>
+                  <Link className="nav-group-link" to="/items/status" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Status</Link>
+                </div> : null}
               </li>
               <li className="nav-item">
                 <Link className="nav-link" to="/analytics" style={{ textDecoration: 'none' }}>Analytics</Link>

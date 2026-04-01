@@ -5,6 +5,7 @@ import { logUserWork } from "../utils/workTracking.js";
 const getDueAccounts = async (req, res) => {
     const mode = String(req.query.mode || 'b2b').toLowerCase();
     const accountId = req.query.accountId;
+    const invoiceId = String(req.query.invoiceId || '').trim();
 
     try {
         if (mode === 'b2b') {
@@ -12,31 +13,46 @@ const getDueAccounts = async (req, res) => {
                 `SELECT
                     ca.id,
                     ca.account_name,
-                    ca.site,
-                    COUNT(bo.id) AS due_order_count,
-                    COALESCE(SUM(bo.dueAmount), 0) AS total_due
+                    ca.address,
+                    COUNT(oe.id) AS due_order_count,
+                    COALESCE(SUM(oe.dueAmount), 0) AS total_due
                  FROM customer_account ca
-                 LEFT JOIN b2b_order_entry bo
-                    ON bo.customerAccountId = ca.id
-                    AND COALESCE(bo.dueAmount, 0) > 0
-                    AND COALESCE(bo.paymentStatus, '') = 'Due'
+                 LEFT JOIN order_entry oe
+                    ON oe.customerAccountId = ca.id
+                    AND LOWER(oe.orderType) = 'b2b'
+                    AND COALESCE(oe.dueAmount, 0) > 0
+                    AND COALESCE(oe.paymentStatus, '') = 'Due'
                  WHERE ca.is_active = 1
-                 GROUP BY ca.id, ca.account_name, ca.site
-                 HAVING COUNT(bo.id) > 0
+                 GROUP BY ca.id, ca.account_name, ca.address
+                 HAVING COUNT(oe.id) > 0
                  ORDER BY total_due DESC, ca.account_name ASC`
             );
 
-            const orders = accountId
+            const orderConditions = [
+                `LOWER(orderType) = 'b2b'`,
+                `COALESCE(dueAmount, 0) > 0`,
+                `COALESCE(paymentStatus, '') = 'Due'`
+            ];
+            const orderParams = [];
+
+            if (accountId) {
+                orderConditions.push(`customerAccountId = ?`);
+                orderParams.push(accountId);
+            }
+            if (invoiceId) {
+                orderConditions.push(`id = ?`);
+                orderParams.push(invoiceId);
+            }
+
+            const orders = (accountId || invoiceId)
                 ? await query(
                     `SELECT
                         id, bookNumber, slipNumber, date, name, site, item, quantity, amount, totalAmount,
                         paymentStatus, dueAmount, customerAccountId, customerAccountName
-                     FROM b2b_order_entry
-                     WHERE customerAccountId = ?
-                       AND COALESCE(dueAmount, 0) > 0
-                       AND COALESCE(paymentStatus, '') = 'Due'
+                     FROM order_entry
+                     WHERE ${orderConditions.join(' AND ')}
                      ORDER BY date DESC, id DESC`,
-                    [accountId]
+                    orderParams
                 )
                 : [];
 
@@ -50,8 +66,9 @@ const getDueAccounts = async (req, res) => {
                 site,
                 COUNT(id) AS due_order_count,
                 COALESCE(SUM(dueAmount), 0) AS total_due
-             FROM normal_order_entry
-             WHERE COALESCE(dueAmount, 0) > 0
+             FROM order_entry
+             WHERE LOWER(orderType) = 'standard'
+               AND COALESCE(dueAmount, 0) > 0
                AND COALESCE(paymentStatus, '') = 'Due'
              GROUP BY name, site
              ORDER BY total_due DESC, name ASC`
@@ -62,18 +79,32 @@ const getDueAccounts = async (req, res) => {
             id: `${account.account_name}|||${account.site || ''}`
         }));
 
-        const orders = accountId
+        const orderConditions = [
+            `LOWER(orderType) = 'standard'`,
+            `COALESCE(dueAmount, 0) > 0`,
+            `COALESCE(paymentStatus, '') = 'Due'`
+        ];
+        const orderParams = [];
+
+        if (accountId) {
+            orderConditions.push(`name = ?`);
+            orderConditions.push(`site = ?`);
+            orderParams.push(...String(accountId).split('|||'));
+        }
+        if (invoiceId) {
+            orderConditions.push(`id = ?`);
+            orderParams.push(invoiceId);
+        }
+
+        const orders = (accountId || invoiceId)
             ? await query(
                 `SELECT
                     id, bookNumber, slipNumber, date, name, site, item, quantity, amount, totalAmount,
                     paymentStatus, dueAmount
-                 FROM normal_order_entry
-                 WHERE name = ?
-                   AND site = ?
-                   AND COALESCE(dueAmount, 0) > 0
-                   AND COALESCE(paymentStatus, '') = 'Due'
+                 FROM order_entry
+                 WHERE ${orderConditions.join(' AND ')}
                  ORDER BY date DESC, id DESC`,
-                String(accountId).split('|||')
+                orderParams
             )
             : [];
 
@@ -85,9 +116,9 @@ const getDueAccounts = async (req, res) => {
 };
 
 const markDueOrderPaid = async (req, res) => {
-    const { id, mode, updatedBy } = req.body || {};
-    const tableName = String(mode || 'normal').toLowerCase() === 'b2b' ? 'b2b_order_entry' : 'normal_order_entry';
+    const { id, mode, updatedBy, updatedByUserId } = req.body || {};
     const actor = updatedBy || 'System';
+    const normalizedMode = String(mode || 'normal').toLowerCase() === 'b2b' ? 'b2b' : 'standard';
 
     if (!id) {
         sendError(res, "Order id is required.");
@@ -100,9 +131,9 @@ const markDueOrderPaid = async (req, res) => {
         await client.beginTransaction();
         const [rows] = await client.execute(
             `SELECT paymentStatus, dueAmount, due_paid, cashCredit, bankCredit, totalAmount
-             FROM ${tableName}
-             WHERE id = ?`,
-            [id]
+             FROM order_entry
+             WHERE id = ? AND LOWER(orderType) = ?`,
+            [id, normalizedMode]
         );
 
         if (!rows.length) {
@@ -117,25 +148,14 @@ const markDueOrderPaid = async (req, res) => {
         const nextDuePaid = Number(previous.due_paid || 0) + dueAmount;
 
         await client.execute(
-            `UPDATE ${tableName}
+            `UPDATE order_entry
              SET paymentStatus = 'Paid',
                  dueAmount = 0,
                  due_paid = ?,
                  bankCredit = CASE WHEN COALESCE(bankCredit, 0) = 0 AND COALESCE(cashCredit, 0) = 0 THEN ? ELSE bankCredit END,
                  lastUpdatedBy = ?
-             WHERE id = ?`,
-            [nextDuePaid, totalAmount, actor, id]
-        );
-
-        await client.execute(
-            `UPDATE entry
-             SET paymentStatus = 'Paid',
-                 dueAmount = 0,
-                 due_paid = ?,
-                 bankCredit = CASE WHEN COALESCE(bankCredit, 0) = 0 AND COALESCE(cashCredit, 0) = 0 THEN ? ELSE bankCredit END,
-                 lastUpdatedBy = ?
-             WHERE id = ?`,
-            [nextDuePaid, totalAmount, actor, id]
+             WHERE id = ? AND LOWER(orderType) = ?`,
+            [nextDuePaid, totalAmount, actor, id, normalizedMode]
         );
 
         await client.execute(
@@ -152,12 +172,13 @@ const markDueOrderPaid = async (req, res) => {
         await client.commit();
 
         await logUserWork({
+            userId: updatedByUserId || null,
             userName: actor,
             userEmail: actor.includes('@') ? actor : null,
             actionType: 'mark_due_paid',
             entityType: 'order',
             entityId: id,
-            details: { mode: tableName === 'b2b_order_entry' ? 'b2b' : 'normal' }
+            details: { mode: normalizedMode === 'b2b' ? 'b2b' : 'normal' }
         });
 
         sendSuccess(res, "Due order marked as paid.", { id });

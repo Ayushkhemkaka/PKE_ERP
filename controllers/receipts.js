@@ -1,18 +1,56 @@
 import { getConnection, query } from "../configs/dbConn.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { logUserWork } from "../utils/workTracking.js";
-import { getOrderTableName } from "../utils/orderTables.js";
 
 const listReceipts = async (req, res) => {
     try {
         const pendingOnly = req.query.status === 'pending';
+        const bookNumber = String(req.query.bookNumber || '').trim();
+        const slipNumber = String(req.query.slipNumber || '').trim();
+        const year = String(req.query.year || '').trim();
+        const partyName = String(req.query.partyName || '').trim();
+        const accountName = String(req.query.accountName || '').trim();
+        const item = String(req.query.item || '').trim();
+        const conditions = [];
+        const values = [];
+
+        if (pendingOnly) {
+            conditions.push('is_printed = 0');
+        }
+        if (bookNumber) {
+            conditions.push('bookNumber = ?');
+            values.push(bookNumber);
+        }
+        if (slipNumber) {
+            conditions.push('slipNumber = ?');
+            values.push(slipNumber);
+        }
+        if (year) {
+            conditions.push('id LIKE ?');
+            values.push(`${year}/%`);
+        }
+        if (partyName) {
+            conditions.push(`LOWER(name) LIKE LOWER(?)`);
+            values.push(`%${partyName}%`);
+        }
+        if (accountName) {
+            conditions.push(`customerAccountName = ?`);
+            values.push(accountName);
+        }
+        if (item) {
+            conditions.push(`item = ?`);
+            values.push(item);
+        }
+
         const rows = await query(
-            `SELECT id, orderType, customerAccountName, bookNumber, slipNumber, source, date, name, site, item,
-                    measurementUnit, quantity, rate, amount, freight, totalAmount, paymentStatus, dueAmount, is_printed, printed_by, createdDate, orderStatus
-             FROM entry
-             ${pendingOnly ? 'WHERE is_printed = 0' : ''}
+            `SELECT id, orderType, customerAccountName, customerGstin, bookNumber, slipNumber, source, date, name, site, item,
+                    measurementUnit, quantity, gross, tare, net, rate, amount, freight, totalAmount, paymentStatus, dueAmount,
+                    lorryNumber, remarks, is_printed, printed_by, createdDate, orderStatus
+             FROM order_entry
+             ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
              ORDER BY createdDate DESC, id DESC
-             LIMIT 50`
+             LIMIT 200`,
+            values
         );
 
         sendSuccess(res, "Receipts fetched successfully.", rows);
@@ -26,6 +64,7 @@ const markReceiptPrinted = async (req, res) => {
     const reqBody = req.body || {};
     const id = reqBody.id;
     const printedBy = reqBody.printedBy || 'System';
+    const printedByUserId = reqBody.printedByUserId || null;
 
     if (!id) {
         sendError(res, "Order id is required.");
@@ -38,7 +77,7 @@ const markReceiptPrinted = async (req, res) => {
         await client.beginTransaction();
         const [entryRows] = await client.execute(
             `SELECT id, orderType, is_printed, printed_by
-             FROM entry
+             FROM order_entry
              WHERE id = ?`,
             [id]
         );
@@ -50,17 +89,8 @@ const markReceiptPrinted = async (req, res) => {
         }
 
         const order = entryRows[0];
-        const targetTable = getOrderTableName(order.ordertype || order.orderType);
-
         await client.execute(
-            `UPDATE entry
-             SET is_printed = 1, printed_by = ?, lastUpdatedBy = ?
-             WHERE id = ?`,
-            [printedBy, printedBy, id]
-        );
-
-        await client.execute(
-            `UPDATE ${targetTable}
+            `UPDATE order_entry
              SET is_printed = 1, printed_by = ?, lastUpdatedBy = ?
              WHERE id = ?`,
             [printedBy, printedBy, id]
@@ -70,7 +100,7 @@ const markReceiptPrinted = async (req, res) => {
             await client.execute(
                 `INSERT INTO history(entryid, field, oldvalue, newvalue, createdby)
                  VALUES (?, ?, ?, ?, ?)`,
-                [id, 'is_printed', '0', '1', printedBy]
+                [id, 'is_printed', 'No', 'Yes', printedBy]
             );
         }
 
@@ -85,6 +115,7 @@ const markReceiptPrinted = async (req, res) => {
         await client.commit();
 
         await logUserWork({
+            userId: printedByUserId,
             userName: printedBy,
             userEmail: printedBy.includes('@') ? printedBy : null,
             actionType: 'print_order',

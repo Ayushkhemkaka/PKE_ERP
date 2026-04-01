@@ -8,6 +8,11 @@ const FinanceDetails = (props) => {
         const parsedValue = Number(value)
         return Number.isFinite(parsedValue) ? parsedValue : fallback
     }
+    const roundTo = (value, decimals = 3) => {
+        const normalizedValue = normalizeNumber(value)
+        const factor = 10 ** decimals
+        return Math.round(normalizedValue * factor) / factor
+    }
     const getEffectiveQuantity = (overrides = {}) => {
         const quantityValue = overrides.quantity ?? quantity
         const netValue = overrides.net ?? net
@@ -34,7 +39,59 @@ const FinanceDetails = (props) => {
         }
     }
 
-    const resetValues = () =>{
+    const buildPaymentBreakdown = (baseValue, paymentStatusValue, existingValues = props.value) => {
+        const normalizedTotal = normalizeNumber(baseValue)
+        const existingDue = normalizeNumber(existingValues.dueAmount)
+        const existingCash = normalizeNumber(existingValues.cashCredit)
+        const existingBank = normalizeNumber(existingValues.bankCredit)
+
+        if (paymentStatusValue === "Bank") {
+            return { dueAmount: 0, cashCredit: 0, bankCredit: normalizedTotal }
+        }
+        if (paymentStatusValue === "Cash") {
+            return { dueAmount: 0, cashCredit: normalizedTotal, bankCredit: 0 }
+        }
+        if (paymentStatusValue === "Due") {
+            return { dueAmount: normalizedTotal, cashCredit: 0, bankCredit: 0 }
+        }
+        if (paymentStatusValue === "CashBank") {
+            const totalExisting = existingDue + existingCash + existingBank
+            if (totalExisting === 0) {
+                return { dueAmount: 0, cashCredit: 0, bankCredit: normalizedTotal }
+            }
+            const safeCash = Math.min(existingCash, normalizedTotal)
+            const safeBank = Math.min(existingBank, Math.max(normalizedTotal - safeCash, 0))
+            const safeDue = Math.max(normalizedTotal - safeCash - safeBank, 0)
+            return { dueAmount: safeDue, cashCredit: safeCash, bankCredit: safeBank }
+        }
+
+        return {
+            dueAmount: existingValues.dueAmount,
+            cashCredit: existingValues.cashCredit,
+            bankCredit: existingValues.bankCredit
+        }
+    }
+
+    const syncDueBalance = (cashValue, bankValue, baseTotal = totalAmount, baseProps = props.value) => {
+        const normalizedTotal = normalizeNumber(baseTotal)
+        const normalizedCash = Math.max(Math.min(normalizeNumber(cashValue), normalizedTotal), 0)
+        const remainingAfterCash = Math.max(normalizedTotal - normalizedCash, 0)
+        const normalizedBank = Math.max(Math.min(normalizeNumber(bankValue), remainingAfterCash), 0)
+        const normalizedDue = Math.max(normalizedTotal - normalizedCash - normalizedBank, 0)
+
+        setCashCredit(normalizedCash)
+        setBankCredit(normalizedBank)
+        setDueAmount(normalizedDue)
+        props.onChange({
+            ...baseProps,
+            cashCredit: normalizedCash,
+            bankCredit: normalizedBank,
+            dueAmount: normalizedDue,
+            paymentStatus: "Due"
+        })
+    }
+
+    useEffect(() => {
         if(props.reset > 0){
             setRate(props.value.rate)
             setDiscount(props.value.discount)
@@ -52,10 +109,57 @@ const FinanceDetails = (props) => {
             setCashCredit(props.value.cashCredit)
             setBankCredit(props.value.bankCredit)
         }
-    }
-    useEffect(()=>{
-        resetValues()
-    })
+    }, [props.reset])
+
+    useEffect(() => {
+        const nextRate = normalizeNumber(props.value.rate)
+        const nextDiscount = normalizeNumber(props.value.discount)
+        const nextQuantity = useQuantityInput ? normalizeNumber(props.value.quantity) : normalizeNumber(props.value.net)
+        const nextGross = normalizeNumber(props.value.gross)
+        const nextTare = normalizeNumber(props.value.tare)
+        const nextNet = normalizeNumber(props.value.net)
+
+        setRate(nextRate)
+        setDiscount(nextDiscount)
+        setGross(nextGross)
+        setTare(nextTare)
+        setNet(nextNet)
+        if (useQuantityInput) {
+            setQuantity(nextQuantity)
+        }
+
+        const nextAmount = Math.max((nextRate * nextQuantity) - nextDiscount, 0)
+        const nextTaxAmount = showTaxFields ? (normalizeNumber(props.value.taxPercent) * nextAmount * 0.01) : 0
+        const nextTotalAmount = nextAmount + normalizeNumber(props.value.freight) + nextTaxAmount
+        const paymentBreakdown = buildPaymentBreakdown(nextTotalAmount, props.value.paymentStatus, props.value)
+
+        setAmount(nextAmount)
+        setTaxAmount(nextTaxAmount)
+        setTotalAmount(nextTotalAmount)
+        setDueAmount(paymentBreakdown.dueAmount)
+        setCashCredit(paymentBreakdown.cashCredit)
+        setBankCredit(paymentBreakdown.bankCredit)
+
+        const shouldSyncParent =
+            normalizeNumber(props.value.amount) !== nextAmount ||
+            normalizeNumber(props.value.taxAmount) !== nextTaxAmount ||
+            normalizeNumber(props.value.totalAmount) !== nextTotalAmount ||
+            normalizeNumber(props.value.dueAmount) !== normalizeNumber(paymentBreakdown.dueAmount) ||
+            normalizeNumber(props.value.cashCredit) !== normalizeNumber(paymentBreakdown.cashCredit) ||
+            normalizeNumber(props.value.bankCredit) !== normalizeNumber(paymentBreakdown.bankCredit)
+
+        if (shouldSyncParent) {
+            props.onChange({
+                ...props.value,
+                amount: nextAmount,
+                taxAmount: nextTaxAmount,
+                totalAmount: nextTotalAmount,
+                dueAmount: paymentBreakdown.dueAmount,
+                cashCredit: paymentBreakdown.cashCredit,
+                bankCredit: paymentBreakdown.bankCredit
+            })
+        }
+    }, [props.value.rate, props.value.discount, props.value.quantity, props.value.net, props.value.gross, props.value.tare, props.value.freight, props.value.taxPercent, useQuantityInput, showTaxFields])
     const setAmountValue = (rate,quantity,discountVal, fieldOverrides = {})=>{
         let change = {}
         let amountValue = 0
@@ -63,9 +167,9 @@ const FinanceDetails = (props) => {
         const normalizedRate = normalizeNumber(rate)
         const normalizedQuantity = normalizeNumber(quantity)
         const normalizedDiscount = normalizeNumber(discountVal)
-        const normalizedGross = normalizeNumber(fieldOverrides.gross ?? gross)
-        const normalizedTare = normalizeNumber(fieldOverrides.tare ?? tare)
-        const normalizedNet = normalizeNumber(fieldOverrides.net ?? net || normalizedQuantity)
+        const normalizedGross = roundTo(fieldOverrides.gross ?? gross)
+        const normalizedTare = roundTo(fieldOverrides.tare ?? tare)
+        const normalizedNet = roundTo(fieldOverrides.net ?? (net || normalizedQuantity))
         if (discountVal >0){
             amountValue = (normalizedRate * normalizedQuantity) - normalizedDiscount
             amountValue = amountValue === 0 ? "0" : amountValue
@@ -119,9 +223,9 @@ const FinanceDetails = (props) => {
     }
 
     const updateWeightValues = (nextGross, nextTare) => {
-        const normalizedGross = normalizeNumber(nextGross)
-        const normalizedTare = normalizeNumber(nextTare)
-        const nextNet = Math.max(normalizedGross - normalizedTare, 0)
+        const normalizedGross = roundTo(nextGross)
+        const normalizedTare = roundTo(nextTare)
+        const nextNet = roundTo(Math.max(normalizedGross - normalizedTare, 0))
         setGross(normalizedGross)
         setTare(normalizedTare)
         setNet(nextNet)
@@ -230,8 +334,6 @@ const FinanceDetails = (props) => {
 
     const paymentStatusChangeHandler = (event) =>{
         const paymentStatusValue = event.target.value
-        console.log("Payment Status",  event.target)
-        console.log("Payment Status",  paymentStatusValue)
         setPaymentStatus(paymentStatusValue)      
 
         if(paymentStatusValue === "Bank"){            
@@ -254,11 +356,16 @@ const FinanceDetails = (props) => {
             setBankCredit(0)
             setDueAmount(totalAmount)
             props.onChange({...props.value,'bankCredit':0,'cashCredit':0,'dueAmount':totalAmount,'paymentStatus' : paymentStatusValue})
+        }else{
+            setCashCredit(0)
+            setBankCredit(0)
+            setDueAmount(0)
+            props.onChange({...props.value,'bankCredit':0,'cashCredit':0,'dueAmount':0,'paymentStatus' : paymentStatusValue})
         }
     }
 
     const cashCreditChangeHandler = (value) =>{
-        const cashCreditValue = value
+        const cashCreditValue = normalizeNumber(value)
         if(normalizeNumber(cashCreditValue) > normalizeNumber(totalAmount)){
             notify("Cash amount cannot be greater than total amount.")
         }
@@ -275,16 +382,7 @@ const FinanceDetails = (props) => {
             setCashCredit(cashCreditValue)
             props.onChange({...props.value,'bankCredit':bankCreditValue,'cashCredit':cashCreditValue}) 
         }else if(paymentStatus === "Due"){
-            let bankCreditValue = bankCredit
-            if(isNaN(parseInt(bankCreditValue))){
-                bankCreditValue = 0
-            }
-            if(normalizeNumber(cashCreditValue) + normalizeNumber(dueAmount) + normalizeNumber(bankCreditValue) > normalizeNumber(totalAmount)){
-                notify("Cash credit cannot be more than total minus due minus bank.")
-            }else{
-                setCashCredit(cashCreditValue) 
-                props.onChange({...props.value,'cashCredit':cashCreditValue}) 
-            }
+            syncDueBalance(cashCreditValue, bankCredit)
         }else if(paymentStatus === "Bank"){
             notify('Change the payment status to Cash or Cash & Bank to edit cash credit.')
         }else if(paymentStatus === ""){
@@ -294,7 +392,7 @@ const FinanceDetails = (props) => {
     
     const bankCreditChangeHandler = (value) =>{
 
-        const bankCreditValue = value
+        const bankCreditValue = normalizeNumber(value)
         if(normalizeNumber(bankCreditValue) > normalizeNumber(totalAmount)){
             notify("Bank amount cannot be greater than total amount.")
         }
@@ -311,16 +409,7 @@ const FinanceDetails = (props) => {
             setCashCredit(cashCreditValue)
             props.onChange({...props.value,'bankCredit':bankCreditValue,'cashCredit':cashCreditValue}) 
         }else if(paymentStatus === "Due"){
-            let cashCreditValue = cashCredit
-            if(isNaN(parseInt(cashCreditValue))){
-                cashCreditValue = 0
-            }
-            if(normalizeNumber(cashCreditValue) + normalizeNumber(dueAmount) + normalizeNumber(bankCreditValue)  > normalizeNumber(totalAmount)){
-                notify("Bank credit cannot be more than total minus due minus cash.")
-            }else{
-                setBankCredit(bankCreditValue)
-                props.onChange({...props.value,'bankCredit':bankCreditValue}) 
-            }
+            syncDueBalance(cashCredit, bankCreditValue)
         }else if(paymentStatus === "Cash"){
             notify('Change the payment status to Bank or Cash & Bank to edit bank credit.')
         }else if(paymentStatus === ""){
@@ -338,11 +427,16 @@ const FinanceDetails = (props) => {
             </div>
             <div className='row g-3'>
                 {useQuantityInput ? <Input name={"Quantity"} id={"quantity"} placeholder={"Quantity Ordered"} isDisabled={props.isQuantityDisabled} value={quantity} onChange={quantityChangeHandler} isRequired={false}/> : <>
-                    <Input name={"Gross"} id={"gross"} placeholder={"Gross Weight"} isDisabled={false} value={gross} onChange={grossChangeHandler} isRequired={false}/>
-                    <Input name={"Tare"} id={"tare"} placeholder={"Tare Weight"} isDisabled={false} value={tare} onChange={tareChangeHandler} isRequired={false}/>
-                    <Input name={"Net"} id={"net"} placeholder={"Net Weight"} isDisabled={true} value={net} isRequired={false}/>
+                    <Input name={"Gross"} id={"gross"} placeholder={"Gross Weight"} isDisabled={false} value={gross} onChange={grossChangeHandler} isRequired={false} step={"0.001"}/>
+                    <Input name={"Tare"} id={"tare"} placeholder={"Tare Weight"} isDisabled={false} value={tare} onChange={tareChangeHandler} isRequired={false} step={"0.001"}/>
+                    <Input name={"Net"} id={"net"} placeholder={"Net Weight"} isDisabled={true} value={net} isRequired={false} step={"0.001"}/>
                 </>}
-                <Input name={"Rate"} id={"rate"} placeholder={"Rate of Product"} isDisabled={false} value={rate} onChange={rateChangeHandler} isRequired={false}/>
+                {props.hideRateField ? null : props.showRateAsText ? <div className="col-lg-4 col-md-6">
+                    <div className="app-field app-display-field">
+                        <span className="form-label">Rate</span>
+                        <div className="app-display-value">{Number(rate || 0).toFixed(2)}</div>
+                    </div>
+                </div> : <Input name={"Rate"} id={"rate"} placeholder={"Rate of Product"} isDisabled={Boolean(props.disableRateInput)} value={rate} onChange={rateChangeHandler} isRequired={false}/>}
                 <Input name={"Amount"} id={"amount"} placeholder={"Amount of Order"} isDisabled={false} value={amount} onChange={amountChangeHandler} isRequired={false}/>
             </div>
             <div className='row g-3 mt-1'>
@@ -353,12 +447,10 @@ const FinanceDetails = (props) => {
             <div className='row g-3 mt-1'>
                 {showTaxFields ? <Input name={"Tax Amount"} id={"taxAmount"} placeholder={"Tax Amount for Order"} isDisabled={true} value={taxAmount} isRequired={false}/> : null}
                 <Input name={"Total Amount"} id={"totalAmount"} placeholder={"Total Amount of Order"} isDisabled={true} value={totalAmount} isRequired={false}/>
-            </div>
-            <div className='row g-3 mt-1'>
                 <div className="col-lg-4 col-md-6">
                     <div className="app-field">
                         <label className="form-label" htmlFor='paymentStatus'>Payment Status:</label>
-                        <select id="paymentStatus" className="form-select app-input" name="paymentStatus" required value={paymentStatus} onChange={paymentStatusChangeHandler}>
+                        <select id="paymentStatus" className="form-select app-input" name="paymentStatus" required={Boolean(props.requirePaymentStatus) && normalizeNumber(totalAmount) !== 0} value={paymentStatus} onChange={paymentStatusChangeHandler}>
                             <option value=''></option>
                             <option value="Cash">Cash</option>
                             <option value="Bank">Bank</option>
@@ -367,9 +459,11 @@ const FinanceDetails = (props) => {
                         </select>
                     </div>
                 </div>
-                <Input name={"Due Amount"} id={"dueAmount"} placeholder={"Due Amount for Order"} isDisabled={false} value={dueAmount} onChange={dueAmountChangeHandler} isRequired={false}/>
+            </div>
+            <div className='row g-3 mt-1'>
                 <Input name={"Cash Credit"} id={"cashCredit"} placeholder={"Cash Credit for Order"} isDisabled={false} value={cashCredit} onChange={cashCreditChangeHandler} isRequired={false}/>
                 <Input name={"Bank Credit"} id={"bankCredit"} placeholder={"Bank Credit for Order"} isDisabled={false} value={bankCredit} onChange={bankCreditChangeHandler} isRequired={false}/>
+                <Input name={"Due Amount"} id={"dueAmount"} placeholder={"Due Amount for Order"} isDisabled={false} value={dueAmount} onChange={dueAmountChangeHandler} isRequired={false}/>
             </div>
         </div>
     )

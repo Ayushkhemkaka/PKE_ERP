@@ -43,7 +43,7 @@ const signup = async (req, res) => {
             [result.insertId]
         );
         await logUserWork({
-            userId: String(createdUser[0].id),
+            userId: createdUser[0].id,
             userName: createdUser[0].full_name,
             userEmail: createdUser[0].email,
             actionType: 'signup',
@@ -71,7 +71,7 @@ const login = async (req, res) => {
 
     if (normalizedEmail === demoEmail && password === demoPassword) {
         await logUserWork({
-            userId: 'demo-user',
+            userId: null,
             userName: 'PKE Test User',
             userEmail: demoEmail,
             actionType: 'login_demo',
@@ -106,7 +106,7 @@ const login = async (req, res) => {
         }
 
         await logUserWork({
-            userId: String(user.id),
+            userId: user.id,
             userName: user.full_name,
             userEmail: user.email,
             actionType: 'login',

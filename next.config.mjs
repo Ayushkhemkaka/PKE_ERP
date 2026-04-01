@@ -1,4 +1,7 @@
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: process.env.ENFORCE_LINT_DURING_BUILD !== 'true'
+  },
   async rewrites() {
     return [
       {

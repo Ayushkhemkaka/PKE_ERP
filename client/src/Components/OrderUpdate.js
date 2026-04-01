@@ -6,8 +6,10 @@ import { useAppContext } from '../context/AppContext.js';
 const OrderUpdate = (props)=> {
     const { currentUser, notify } = useAppContext();
     const [isSaving, setIsSaving] = useState(false);
+    const [localNotice, setLocalNotice] = useState(null);
+    const isB2B = props.mode === 'b2b';
     
-    const [finaceDetails , setFinanceDetails] = useState({'quantity' : props.initialData.quantity,'rate' : props.initialData.rate ,'amount' :props.initialData.amount,'discount':props.initialData.discount,'freight':props.initialData.freight,'taxPercent':props.initialData.taxPercent,'taxAmount':props.initialData.taxAmount , 'totalAmount' :props.initialData.totalAmount, 'paymentStatus' :props.initialData.paymentStatus, 'dueAmount':props.initialData.dueAmount, 'cashCredit':props.initialData.cashCredit,'bankCredit' :props.initialData.bankCredit})
+    const [finaceDetails , setFinanceDetails] = useState({'quantity' : props.initialData.quantity,'gross': props.initialData.gross,'tare': props.initialData.tare,'net': props.initialData.net,'rate' : props.initialData.rate ,'amount' :props.initialData.amount,'discount':props.initialData.discount,'freight':props.initialData.freight,'taxPercent':props.initialData.taxPercent,'taxAmount':props.initialData.taxAmount , 'totalAmount' :props.initialData.totalAmount, 'paymentStatus' :props.initialData.paymentStatus, 'dueAmount':props.initialData.dueAmount, 'cashCredit':props.initialData.cashCredit,'bankCredit' :props.initialData.bankCredit})
 
     const financeDetailsChangeHandler = (value) =>{
         setFinanceDetails(value)
@@ -19,17 +21,21 @@ const OrderUpdate = (props)=> {
 
     const cancelOrderHandler = async () => {
         if (props.initialData.orderStatus === 'Cancelled') {
-            notify('error', 'This order is already cancelled.');
+            setLocalNotice({ type: 'error', message: 'This order has already been cancelled and cannot be cancelled again.' });
             return;
         }
 
         setIsSaving(true);
+        setLocalNotice(null);
         try {
             const response = await axios.post('/data/update', {
                 body: {
                     id: props.data.id,
                     mode: props.mode || props.data.ordermode || 'normal',
                     quantity: parseFloat(finaceDetails.quantity || 0),
+                    gross: parseFloat(finaceDetails.gross || 0),
+                    tare: parseFloat(finaceDetails.tare || 0),
+                    net: parseFloat(finaceDetails.net || 0),
                     rate: parseFloat(finaceDetails.rate || 0),
                     amount: parseFloat(finaceDetails.amount || 0),
                     discount: parseFloat(finaceDetails.discount || 0),
@@ -42,13 +48,14 @@ const OrderUpdate = (props)=> {
                     cashcredit: parseFloat(finaceDetails.cashCredit || 0),
                     bankcredit: parseFloat(finaceDetails.bankCredit || 0),
                     updatedBy: currentUser?.fullName || currentUser?.email || 'System',
+                    updatedByUserId: currentUser?.id || null,
                     action: 'cancel'
                 }
             });
             notify('success', response.data.message);
             props.updateSuccessful({ cancelled: true });
         } catch (err) {
-            notify('error', err.response?.data?.message || 'Unable to cancel the order.');
+            setLocalNotice({ type: 'error', message: err.response?.data?.message || 'The order could not be cancelled at this time. Please try again.' });
         } finally {
             setIsSaving(false);
         }
@@ -56,10 +63,14 @@ const OrderUpdate = (props)=> {
 
     const updateClickHandler = (event) =>{
         event.preventDefault()
+        setLocalNotice(null)
         const input = {}
         input.id = props.data.id
         input.mode = props.mode || props.data.ordermode || 'normal'
         input.quantity = parseFloat(finaceDetails.quantity || 0)
+        input.gross = parseFloat(finaceDetails.gross || 0)
+        input.tare = parseFloat(finaceDetails.tare || 0)
+        input.net = parseFloat(finaceDetails.net || 0)
         input.rate = parseFloat(finaceDetails.rate)
         input.amount = parseFloat(finaceDetails.amount)
         input.discount = parseFloat(finaceDetails.discount)
@@ -72,6 +83,7 @@ const OrderUpdate = (props)=> {
         input.cashcredit = parseFloat(finaceDetails.cashCredit)
         input.bankcredit = parseFloat(finaceDetails.bankCredit)
         input.updatedBy = currentUser?.fullName || currentUser?.email || 'System'
+        input.updatedByUserId = currentUser?.id || null
                 
         const updateData = async() =>{
             setIsSaving(true);
@@ -79,9 +91,10 @@ const OrderUpdate = (props)=> {
                 body : input
             }).then(res =>{
                 notify('success', res.data.message)
+                setLocalNotice(null)
                 props.updateSuccessful(finaceDetails)
             }).catch(err =>{
-                notify('error', err.response?.data?.message || 'Unable to update the order.')
+                setLocalNotice({ type: 'error', message: err.response?.data?.message || 'The order update could not be saved. Please review the values and try again.' })
             }).finally(() => {
                 setIsSaving(false);
             });
@@ -89,7 +102,7 @@ const OrderUpdate = (props)=> {
         }
 
         if(finaceDetails.paymentStatus === "Due" && parseInt(finaceDetails.bankCredit) + parseInt(finaceDetails.cashCredit) + parseInt(finaceDetails.dueAmount) !== parseInt(finaceDetails.totalAmount)){
-            notify('error', "Due, cash credit, and bank credit must add up to the total amount.")
+            setLocalNotice({ type: 'error', message: 'For due payments, cash credit, bank credit, and due amount must together match the total amount.' })
         }
         else{ 
             updateData();
@@ -104,6 +117,13 @@ const OrderUpdate = (props)=> {
                     <p className="section-subtitle mb-0">Adjust financial values for the selected row and save the revised totals.</p>
                 </div>
             </div>
+            {localNotice ? <div className={`app-alert app-alert-${localNotice.type} app-alert-inline`}>
+                <div>
+                    <strong>{localNotice.type === 'error' ? 'Please Review' : 'Notice'}</strong>
+                    <p className="mb-0">{localNotice.message}</p>
+                </div>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setLocalNotice(null)}></button>
+            </div> : null}
             <div className='update-panel'>
                 <form>
                     <div className="row g-3 mb-3">
@@ -133,8 +153,30 @@ const OrderUpdate = (props)=> {
                                 <div className="app-display-value">{props.initialData.orderStatus || 'Active'}</div>
                             </div>
                         </div>
+                        {props.initialData.item ? <div className="col-lg-4 col-md-6">
+                            <div className="app-field app-display-field">
+                                <span className="form-label">Item</span>
+                                <div className="app-display-value">{props.initialData.item}</div>
+                            </div>
+                        </div> : null}
+                        {props.initialData.measurementUnit ? <div className="col-lg-4 col-md-6">
+                            <div className="app-field app-display-field">
+                                <span className="form-label">Measurement Unit</span>
+                                <div className="app-display-value">{props.initialData.measurementUnit}</div>
+                            </div>
+                        </div> : null}
                     </div>
-                    <FinanceDetails isQuantityDisabled = {false} onChange = {financeDetailsChangeHandler} onNotify={notify} value = {finaceDetails} reset = {0}/>
+                    <FinanceDetails
+                        isQuantityDisabled={false}
+                        onChange={financeDetailsChangeHandler}
+                        onNotify={(type, message) => setLocalNotice({ type, message })}
+                        value={finaceDetails}
+                        reset={0}
+                        hideRateField={false}
+                        showRateAsText={!isB2B}
+                        showTaxFields={isB2B}
+                        requirePaymentStatus={isB2B}
+                    />
                     <div className='action-row mt-4'>
                         <button id="reset" type="reset" className="btn btn-outline-secondary btn-lg" onClick={cancelClickHandler} disabled={isSaving}>Close</button>
                         <button type="button" className="btn btn-outline-dark btn-lg" onClick={cancelOrderHandler} disabled={isSaving || props.initialData.orderStatus === 'Cancelled'}>{props.initialData.orderStatus === 'Cancelled' ? 'Order Cancelled' : 'Cancel Order'}</button>

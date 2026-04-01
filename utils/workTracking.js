@@ -10,11 +10,12 @@ const logUserWork = async ({
     details = null
 }) => {
     try {
+        const normalizedUserId = Number.isFinite(Number(userId)) ? Number(userId) : null;
         await query(
             `INSERT INTO user_work_log(user_id, user_name, user_email, action_type, entity_type, entity_id, details)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
-                userId,
+                normalizedUserId,
                 userName,
                 userEmail,
                 actionType,

@@ -1,9 +1,8 @@
 import { query } from "../configs/dbConn.js"
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { logUserWork } from "../utils/workTracking.js";
-import { getOrderTableName } from "../utils/orderTables.js";
 
-const requiredFields = ['date', 'name', 'site', 'lorryNumber', 'item', 'measurementUnit', 'source', 'paymentStatus'];
+const requiredFields = ['date', 'name', 'site', 'lorryNumber', 'item', 'measurementUnit', 'source'];
 const toNumber = (value, fallback = 0) => {
     const parsedValue = Number(value);
     return Number.isFinite(parsedValue) ? parsedValue : fallback;
@@ -38,11 +37,7 @@ const getNextBookSlip = async (db = null, dateValue = new Date()) => {
     const endDate = getFinancialYearEnd(dateValue);
     const rows = await executor(
         `SELECT booknumber, slipnumber
-         FROM (
-            SELECT booknumber, slipnumber, date FROM normal_order_entry
-            UNION ALL
-            SELECT booknumber, slipnumber, date FROM b2b_order_entry
-         ) AS combined_entries
+         FROM order_entry
          WHERE date BETWEEN ? AND ?
          ORDER BY booknumber DESC, slipnumber DESC
          LIMIT 1`,
@@ -71,12 +66,22 @@ const insert = async (req,res) =>{
         }
     }
 
+    const orderType = reqBody.orderType === 'B2B' ? 'B2B' : 'Standard';
+    if (orderType === 'Standard' && toNumber(reqBody.totalAmount) <= 0) {
+        sendError(res, "totalAmount must be greater than 0 for cash orders.");
+        return;
+    }
+
+    if (orderType === 'Standard' && !reqBody.paymentStatus) {
+        sendError(res, "paymentStatus is required for cash orders.");
+        return;
+    }
+
     const createdBy = reqBody.createdBy || 'System';
+    const createdByUserId = reqBody.createdByUserId || null;
     const nextSequence = await getNextBookSlip(null, reqBody.date);
     reqBody.bookNumber = nextSequence.bookNumber;
     reqBody.slipNumber = nextSequence.slipNumber;
-    const orderType = reqBody.orderType === 'B2B' ? 'B2B' : 'Standard';
-    const targetTable = getOrderTableName(orderType);
     const dueOnCreate = toNumber(reqBody.dueOnCreate ?? reqBody.dueAmount);
     const duePaid = calculateDuePaid(dueOnCreate, reqBody.dueAmount);
     const id = buildEntryId(reqBody.bookNumber, reqBody.slipNumber, reqBody.date);
@@ -86,6 +91,9 @@ const insert = async (req,res) =>{
         orderType,
         reqBody.customerAccountId || null,
         reqBody.customerAccountName || null,
+        reqBody.itemId || null,
+        reqBody.measurementUnitId || null,
+        reqBody.itemRateId || null,
         reqBody.customerGstin || null,
         reqBody.date,
         reqBody.name,
@@ -116,118 +124,23 @@ const insert = async (req,res) =>{
         createdBy,
         createdBy
     ];
-    const splitValues = orderType === 'B2B'
-        ? [
-            id,
-            reqBody.bookNumber,
-            reqBody.customerAccountId || null,
-            reqBody.customerAccountName || null,
-            reqBody.date,
-            reqBody.name,
-            reqBody.site,
-            reqBody.lorryNumber,
-            reqBody.item,
-            reqBody.measurementUnit,
-            toNumber(reqBody.quantity),
-            toNumber(reqBody.gross),
-            toNumber(reqBody.tare),
-            toNumber(reqBody.net),
-            toNumber(reqBody.rate),
-            toNumber(reqBody.amount),
-            toNumber(reqBody.discount),
-            toNumber(reqBody.freight),
-            toNumber(reqBody.taxPercent),
-            toNumber(reqBody.taxAmount),
-            toNumber(reqBody.totalAmount),
-            reqBody.paymentStatus,
-            toNumber(reqBody.cashCredit),
-            toNumber(reqBody.bankCredit),
-            toNumber(reqBody.dueAmount),
-            dueOnCreate,
-            duePaid,
-            reqBody.source,
-            reqBody.remarks || '',
-            reqBody.customerGstin || null,
-            reqBody.slipNumber,
-            createdBy,
-            createdBy
-        ]
-        : [
-            id,
-            reqBody.bookNumber,
-            reqBody.date,
-            reqBody.name,
-            reqBody.site,
-            reqBody.lorryNumber,
-            reqBody.item,
-            reqBody.measurementUnit,
-            toNumber(reqBody.quantity),
-            toNumber(reqBody.gross),
-            toNumber(reqBody.tare),
-            toNumber(reqBody.net),
-            toNumber(reqBody.rate),
-            toNumber(reqBody.amount),
-            toNumber(reqBody.discount),
-            toNumber(reqBody.freight),
-            toNumber(reqBody.taxPercent),
-            toNumber(reqBody.taxAmount),
-            toNumber(reqBody.totalAmount),
-            reqBody.paymentStatus,
-            toNumber(reqBody.cashCredit),
-            toNumber(reqBody.bankCredit),
-            toNumber(reqBody.dueAmount),
-            dueOnCreate,
-            duePaid,
-            reqBody.source,
-            reqBody.remarks || '',
-            reqBody.customerGstin || null,
-            reqBody.slipNumber,
-            createdBy,
-            createdBy
-        ];
 
     try {
         await query(
-            orderType === 'B2B'
-                ? `INSERT INTO ${targetTable}(
-                    id, bookNumber, customerAccountId, customerAccountName, date, name, site, lorryNumber, item, measurementUnit,
-                    quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
-                    paymentStatus, cashCredit, bankCredit, dueAmount, due_on_create, due_paid,
-                    source, remarks, customerGstin, slipNumber, lastUpdatedBy, createdBy
-                ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?
-                )`
-                : `INSERT INTO ${targetTable}(
-                    id, bookNumber, date, name, site, lorryNumber, item, measurementUnit,
-                    quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
-                    paymentStatus, cashCredit, bankCredit, dueAmount, due_on_create, due_paid,
-                    source, remarks, customerGstin, slipNumber, lastUpdatedBy, createdBy
-                ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?
-                )`,
-            splitValues
-        );
-
-        await query(
-            `INSERT INTO entry(
-                id, bookNumber, orderType, customerAccountId, customerAccountName, customerGstin, date, name, site, lorryNumber, item, measurementUnit,
+            `INSERT INTO order_entry(
+                id, bookNumber, orderType, customerAccountId, customerAccountName, itemId, measurementUnitId, itemRateId, customerGstin, date, name, site, lorryNumber, item, measurementUnit,
                 quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
                 paymentStatus, dueAmount, due_on_create, due_paid, cashCredit, bankCredit, source, remarks, slipNumber, lastUpdatedBy, createdBy
             ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )`,
             values
         );
 
         await logUserWork({
+            userId: createdByUserId,
             userName: createdBy,
             userEmail: createdBy.includes('@') ? createdBy : null,
             actionType: 'create_order',
@@ -237,6 +150,9 @@ const insert = async (req,res) =>{
                 bookNumber: reqBody.bookNumber,
                 slipNumber: reqBody.slipNumber,
                 orderType,
+                itemId: reqBody.itemId || null,
+                measurementUnitId: reqBody.measurementUnitId || null,
+                itemRateId: reqBody.itemRateId || null,
                 item: reqBody.item,
                 measurementUnit: reqBody.measurementUnit,
                 gross: toNumber(reqBody.gross),

@@ -1,6 +1,6 @@
 import { query as executeQuery } from "../configs/dbConn.js"
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
-import { getOrderTableName, normalizeOrderMode, ORDER_MODES } from "../utils/orderTables.js";
+import { normalizeOrderMode, ORDER_MODES } from "../utils/orderTables.js";
 
 const baseColumns = ['id', 'date', 'name', 'lorrynumber', 'item', 'quantity'];
 const allowedColumns = new Set([
@@ -33,11 +33,28 @@ const find = async (req,res) =>{
     const selectedColumns = getSelectedColumns(req.query.columns);
     const conditions = [];
     const values = [];
-    const tableName = mode === ORDER_MODES.all ? 'entry' : getOrderTableName(mode);
+    const tableName = 'order_entry';
 
+    if (mode !== ORDER_MODES.all) {
+        conditions.push(`LOWER(orderType) = ?`);
+        values.push(mode === ORDER_MODES.b2b ? 'b2b' : 'standard');
+    }
+
+    if(req.query.id){
+        conditions.push(`id = ?`);
+        values.push(req.query.id);
+    }
     if(req.query.bookNumber){
         conditions.push(`booknumber = ?`);
         values.push(req.query.bookNumber);
+    }
+    if(req.query.year){
+        conditions.push(`YEAR(date) = ?`);
+        values.push(req.query.year);
+    }
+    if(req.query.slipNumber){
+        conditions.push(`slipnumber = ?`);
+        values.push(req.query.slipNumber);
     }
     if(req.query.dateStart){
         conditions.push(`date >= ?`);
@@ -97,8 +114,14 @@ const findById = async (req,res) =>{
     }
 
     try {
-        const tableName = mode === ORDER_MODES.all ? 'entry' : getOrderTableName(mode);
-        const result = await executeQuery(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+        const tableName = 'order_entry';
+        const queryValues = [id];
+        let modeCondition = '';
+        if (mode !== ORDER_MODES.all) {
+            modeCondition = ' AND LOWER(orderType) = ?';
+            queryValues.push(mode === ORDER_MODES.b2b ? 'b2b' : 'standard');
+        }
+        const result = await executeQuery(`SELECT * FROM ${tableName} WHERE id = ?${modeCondition}`, queryValues);
         if (result.length === 0) {
             sendError(res, "Order not found.", 404);
             return;

@@ -1,13 +1,14 @@
 import { getConnection } from "../configs/dbConn.js"
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { logUserWork } from "../utils/workTracking.js";
-import { getOrderTableName, normalizeOrderMode } from "../utils/orderTables.js";
+import { normalizeOrderMode } from "../utils/orderTables.js";
 
 const update = async (req,res) =>{
     const reqBody = req.body?.body || req.body || {};
     const updatedBy = reqBody.updatedBy || 'System';
+    const updatedByUserId = reqBody.updatedByUserId || null;
     const orderMode = normalizeOrderMode(reqBody.mode);
-    const targetTable = getOrderTableName(orderMode);
+    const targetTable = 'order_entry';
 
     if (!reqBody.id) {
         sendError(res, "Order id is required.");
@@ -19,7 +20,7 @@ const update = async (req,res) =>{
     try {
         await client.beginTransaction();
         const [currentResult] = await client.execute(
-            `SELECT id, quantity, rate, amount, discount, freight, taxpercent, taxamount, totalamount,
+            `SELECT id, quantity, gross, tare, net, rate, amount, discount, freight, taxpercent, taxamount, totalamount,
                     paymentstatus, orderstatus, cancelledat, cancelledby, dueamount, due_on_create, due_paid, cashcredit, bankcredit
              FROM ${targetTable}
              WHERE id = ?`,
@@ -41,6 +42,9 @@ const update = async (req,res) =>{
         const nextCancelledBy = isCancellation ? updatedBy : previous.cancelledby;
         const next = {
             quantity: reqBody.quantity || 0,
+            gross: reqBody.gross || 0,
+            tare: reqBody.tare || 0,
+            net: reqBody.net || 0,
             rate: reqBody.rate || 0,
             amount: reqBody.amount || 0,
             discount: reqBody.discount || 0,
@@ -61,41 +65,15 @@ const update = async (req,res) =>{
 
         await client.execute(
             `UPDATE ${targetTable}
-             SET quantity = ?, rate = ?, amount = ?, discount = ?, freight = ?, taxpercent = ?, taxamount = ?,
+             SET quantity = ?, gross = ?, tare = ?, net = ?, rate = ?, amount = ?, discount = ?, freight = ?, taxpercent = ?, taxamount = ?,
                  totalamount = ?, paymentstatus = ?, orderstatus = ?, cancelledat = ?, cancelledby = ?, dueamount = ?, due_on_create = ?, due_paid = ?, cashcredit = ?,
                  bankcredit = ?, lastupdatedby = ?
              WHERE id = ?`,
             [
                 next.quantity,
-                next.rate,
-                next.amount,
-                next.discount,
-                next.freight,
-                next.taxpercent,
-                next.taxamount,
-                next.totalamount,
-                next.paymentstatus,
-                next.orderstatus,
-                next.cancelledat,
-                next.cancelledby,
-                next.dueamount,
-                next.due_on_create,
-                next.due_paid,
-                next.cashcredit,
-                next.bankcredit,
-                updatedBy,
-                reqBody.id
-            ]
-        );
-
-        await client.execute(
-            `UPDATE entry
-             SET quantity = ?, rate = ?, amount = ?, discount = ?, freight = ?, taxpercent = ?, taxamount = ?,
-                 totalamount = ?, paymentstatus = ?, orderstatus = ?, cancelledat = ?, cancelledby = ?, dueamount = ?, due_on_create = ?, due_paid = ?, cashcredit = ?,
-                 bankcredit = ?, lastupdatedby = ?
-             WHERE id = ?`,
-            [
-                next.quantity,
+                next.gross,
+                next.tare,
+                next.net,
                 next.rate,
                 next.amount,
                 next.discount,
@@ -135,6 +113,7 @@ const update = async (req,res) =>{
 
         await client.commit();
         await logUserWork({
+            userId: updatedByUserId,
             userName: updatedBy,
             userEmail: updatedBy.includes('@') ? updatedBy : null,
             actionType: isCancellation ? 'cancel_order' : 'update_order',

@@ -8,20 +8,17 @@ import { buildInvoiceHtml, buildPrintableOrder, formatCurrency } from '../utils/
 const OrderEntry = ({ mode = 'standard' }) => {
     const { currentUser, notify } = useAppContext();
     const isB2B = mode === 'b2b';
+    const [localNotice, setLocalNotice] = useState(null);
 
-    let [isDisabledOtherItem, setIsDisabledOtherItem] = useState(true);
-    let [isDisabledOtherMeasurnmentUnit, setIsDisabledOtherMeasurnmentUnit] = useState(true);
     const [item, setItem] = useState("")
     const [measurementUnit, setMeasurementUnit] = useState("")
-    const [otherItem, setOtherItem] = useState("")
-    const [otherMeasurementUnit, setOtherMeasurementUnit] = useState("")
     const [finaceDetails, setFinanceDetails] = useState({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
     const [reset, setReset] = useState(0)
     const [date, setDate] = useState(moment().format("YYYY-MM-DD"))
     const [lastSubmittedOrder, setLastSubmittedOrder] = useState(null)
     const [bookNumber, setBookNumber] = useState(1)
     const [slipNumber, setSlipNumber] = useState(1)
-    const [itemRates, setItemRates] = useState([])
+    const [itemCatalog, setItemCatalog] = useState([])
     const [customerAccounts, setCustomerAccounts] = useState([])
     const [selectedAccountId, setSelectedAccountId] = useState("")
 
@@ -31,18 +28,18 @@ const OrderEntry = ({ mode = 'standard' }) => {
             setBookNumber(response.data.data.bookNumber);
             setSlipNumber(response.data.data.slipNumber);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to fetch the next book/slip number.');
+            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load the next book and serial number at the moment. Please try again.' });
         }
-    }, [notify])
+    }, [])
 
-    const fetchRates = useCallback(async () => {
+    const fetchItems = useCallback(async () => {
         try {
-            const response = await axios.get('/data/rates');
-            setItemRates(response.data.data);
+            const response = await axios.get('/data/items/catalog');
+            setItemCatalog(response.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load item rates.');
+            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load the item list right now. Please refresh and try again.' });
         }
-    }, [notify])
+    }, [])
 
     const fetchAccounts = useCallback(async () => {
         if (!isB2B) {
@@ -53,103 +50,72 @@ const OrderEntry = ({ mode = 'standard' }) => {
             const response = await axios.get('/data/accounts');
             setCustomerAccounts(response.data.data);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load customer accounts.');
+            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load customer accounts right now. Please try again.' });
         }
-    }, [isB2B, notify])
+    }, [isB2B])
 
     useEffect(() => {
         fetchNextSequence(date);
-        fetchRates();
+        fetchItems();
         fetchAccounts();
-    }, [date, fetchNextSequence, fetchRates, fetchAccounts]);
+    }, [date, fetchNextSequence, fetchItems, fetchAccounts]);
 
     useEffect(() => {
-        if (!item || !measurementUnit || item === 'Other' || measurementUnit === 'Other') {
+        if (!item || !measurementUnit) {
             return;
         }
 
-        const matchedRate = itemRates.find((rateEntry) =>
-            rateEntry.item_name === item && rateEntry.measurement_unit === measurementUnit
+        const selectedItem = itemCatalog.find((entry) => entry.itemName === item);
+        const matchedRate = selectedItem?.measurementUnits?.find((rateEntry) =>
+            rateEntry.measurementUnitName === measurementUnit
         );
 
         if (matchedRate) {
             setFinanceDetails((prev) => ({ ...prev, rate: Number(matchedRate.rate) }));
         }
-    }, [item, measurementUnit, itemRates]);
-
-    const measurementUnitChangeHandler = (event) => {
-        let measurementUnitValue = event.target.value
-        console.log("Measurement Unit Value", event.target)
-        console.log("Measurement Unit Value", measurementUnitValue)
-        setMeasurementUnit(measurementUnitValue)
-        if (measurementUnitValue === "Other") {
-            setIsDisabledOtherMeasurnmentUnit(false)
-        } else {
-            setIsDisabledOtherMeasurnmentUnit(true)
-            setOtherMeasurementUnit("")
-        }
-    }
-
-    const OtherMeasurementUnitChangeHandler = (event) => {
-        let otherMeasurementUnitValue = event.target.value
-        console.log("Other Measurement Unit Value", event.target.value)
-        setOtherMeasurementUnit(otherMeasurementUnitValue)
-    }
+    }, [item, measurementUnit, itemCatalog]);
 
     const itemChangeHandler = (event) => {
-        let itemValue = event.target.value
-        console.log("Item Value", event.target)
-        console.log("Item Value", itemValue)
-        setItem(itemValue)
-        if (itemValue === "Other") {
-            setIsDisabledOtherItem(false)
-        } else {
-            setIsDisabledOtherItem(true)
-            setOtherItem("")
-        }
-    }
+        const selectedItemName = event.target.value
+        setItem(selectedItemName)
 
-    const otherItemChangeHandler = (event) => {
-        let otherItemValue = event.target.value
-        setOtherItem(otherItemValue)
+        const selectedItem = itemCatalog.find((entry) => entry.itemName === selectedItemName)
+        const defaultUnit = selectedItem?.measurementUnits?.find((unit) => unit.measurementUnitId === selectedItem.defaultMeasurementUnitId)
+            || selectedItem?.measurementUnits?.[0]
+            || null
+
+        setMeasurementUnit(defaultUnit?.measurementUnitName || '')
+        setFinanceDetails((prev) => ({
+            ...prev,
+            rate: Number(defaultUnit?.rate || 0)
+        }))
     }
 
     const customerAccountChangeHandler = (event) => {
         const accountId = event.target.value
         setSelectedAccountId(accountId)
-
-        const nameInput = document.getElementById('name')
-        const siteInput = document.getElementById('site')
-        const gstinInput = document.getElementById('customerGstin')
-
-        const selectedAccount = customerAccounts.find((account) => String(account.id) === String(accountId))
-        if (!selectedAccount) {
-            if (nameInput) {
-                nameInput.value = ''
-            }
-            if (siteInput) {
-                siteInput.value = ''
-            }
-            if (gstinInput) {
-                gstinInput.value = ''
-            }
-            return
-        }
-        if (nameInput) {
-            nameInput.value = selectedAccount.account_name || ''
-        }
-        if (siteInput) {
-            siteInput.value = selectedAccount.site || ''
-        }
-        if (gstinInput) {
-            gstinInput.value = selectedAccount.gstin || ''
-        }
     }
 
     const financeDetailsChangeHandler = (value) => {
         setFinanceDetails(value)
     }
 
+    const rateInputChangeHandler = (event) => {
+        setFinanceDetails((previous) => ({
+            ...previous,
+            rate: Number(event.target.value || 0)
+        }))
+    }
+
+    const itemOptions = itemCatalog
+        .filter((catalogItem) => catalogItem.isActive)
+        .map((catalogItem) => catalogItem.itemName)
+        .sort((left, right) => left.localeCompare(right))
+
+    const selectedItemConfig = itemCatalog.find((catalogItem) => catalogItem.itemName === item)
+    const measurementUnitOptions = selectedItemConfig?.measurementUnits || []
+    const selectedMeasurementUnit = measurementUnitOptions.find((unit) => unit.measurementUnitName === measurementUnit) || null
+    const selectedAccount = customerAccounts.find((account) => String(account.id) === String(selectedAccountId)) || null
     const dateChangeHandler = (event) => {
         setDate(event.target.value)
         fetchNextSequence(event.target.value)
@@ -158,6 +124,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
     const resetClickHandler = () => {
         setFinanceDetails({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
         setReset(reset + 1)
+        setLocalNotice(null)
         setDate(moment().format("YYYY-MM-DD"))
         fetchNextSequence(moment().format("YYYY-MM-DD"))
         if (!isB2B) {
@@ -172,14 +139,15 @@ const OrderEntry = ({ mode = 'standard' }) => {
 
         const printWindow = window.open('', '_blank', 'width=900,height=700')
         if (!printWindow) {
-            notify('error', 'Please allow popups to print the invoice.')
+            setLocalNotice({ type: 'error', message: 'Printing could not be started because pop-ups are blocked. Please allow pop-ups for this site and try again.' })
             return
         }
 
         try {
             await axios.post('/data/receipts/print', {
                 id: order.id,
-                printedBy: currentUser?.fullName || currentUser?.email || 'System'
+                printedBy: currentUser?.fullName || currentUser?.email || 'System',
+                printedByUserId: currentUser?.id || null
             });
             printWindow.document.write(buildInvoiceHtml(order, isB2B ? 'B2B order print view' : 'Order entry print view'));
             printWindow.document.close()
@@ -188,26 +156,26 @@ const OrderEntry = ({ mode = 'standard' }) => {
             setLastSubmittedOrder((prev) => prev ? { ...prev, isPrinted: true } : prev)
         } catch (error) {
             printWindow.close()
-            notify('error', error.response?.data?.message || 'Unable to update the print status.')
+            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'The print status could not be updated. Please try again.' })
         }
     }
 
     const formSubmitHandler = (event) => {
         event.preventDefault()
-        const selectedAccount = customerAccounts.find((account) => String(account.id) === String(selectedAccountId))
+        setLocalNotice(null)
         if (isB2B && !selectedAccount) {
-            notify('error', "Please select a customer account first.")
+            setLocalNotice({ type: 'error', message: 'Please select a customer account before submitting the B2B order.' })
             return
         }
         const input = {}
         input.bookNumber = bookNumber
         input.date = event.target.date.value
-        input.name = event.target.name.value
+        input.name = isB2B ? (selectedAccount?.account_name || '') : event.target.name.value
         input.site = event.target.site.value
-        input.customerGstin = event.target.customerGstin.value || selectedAccount?.gstin || ''
+        input.customerGstin = isB2B ? (selectedAccount?.gstin || '') : ''
         input.lorryNumber = event.target.lorryNumber.value
-        event.target.item.value === "Other" ? input.item = event.target.otherItem.value : input.item = event.target.item.value
-        event.target.measurementUnit.value === "Other" ? input.measurementUnit = event.target.othermeasurementUnit.value : input.measurementUnit = event.target.measurementUnit.value
+        input.item = event.target.item.value
+        input.measurementUnit = measurementUnit
         input.quantity = Number(finaceDetails.quantity || 0)
         input.gross = Number(finaceDetails.gross || 0)
         input.tare = Number(finaceDetails.tare || 0)
@@ -227,9 +195,13 @@ const OrderEntry = ({ mode = 'standard' }) => {
         input.remarks = event.target.remarks.value
         input.slipNumber = slipNumber
         input.createdBy = currentUser?.fullName || currentUser?.email || 'System'
+        input.createdByUserId = currentUser?.id || null
         input.orderType = isB2B ? 'B2B' : 'Standard'
         input.customerAccountId = selectedAccount?.id || null
         input.customerAccountName = selectedAccount?.account_name || null
+        input.itemId = selectedItemConfig?.id || null
+        input.measurementUnitId = selectedMeasurementUnit?.measurementUnitId || selectedItemConfig?.defaultMeasurementUnitId || null
+        input.itemRateId = selectedMeasurementUnit?.itemRateId || null
         const printableOrder = buildPrintableOrder(input)
 
         console.log("Input", input)
@@ -238,35 +210,33 @@ const OrderEntry = ({ mode = 'standard' }) => {
                 body: input
             }).then(res => {
                 notify('success', res.data.message)
+                setLocalNotice(null)
                 setLastSubmittedOrder({ ...printableOrder, id: res.data.data.id, orderType: input.orderType, isPrinted: false })
                 resetClickHandler()
-                setOtherMeasurementUnit("")
-                setIsDisabledOtherMeasurnmentUnit(true)
-                setIsDisabledOtherItem(true)
-                setOtherItem("")
                 setMeasurementUnit("")
                 setItem("")
-                event.target.name.value = selectedAccount?.account_name || null
-                event.target.site.value = selectedAccount?.site || null
-                event.target.customerGstin.value = selectedAccount?.gstin || ''
+                if (!isB2B) {
+                    event.target.name.value = ''
+                }
+                event.target.site.value = ''
                 event.target.lorryNumber.value = null
                 event.target.source.value = null
                 event.target.remarks.value = ''
                 fetchNextSequence(date)
             }).catch(err => {
-                notify('error', err.response?.data?.message || 'Unable to save the order.')
+                setLocalNotice({ type: 'error', message: err.response?.data?.message || 'The order could not be saved. Please review the form and try again.' })
             });
 
         }
 
-        if (finaceDetails.paymentStatus === "Due" && parseInt(finaceDetails.bankCredit) + parseInt(finaceDetails.cashCredit) + parseInt(finaceDetails.dueAmount) !== parseInt(finaceDetails.totalAmount)) {
-            notify('error', "Due, cash credit, and bank credit must add up to the total amount.")
-        } else if (item === "Other" && !event.target.otherItem.value) {
-            notify('error', "Please enter the other item first.")
-        } else if (measurementUnit === "Other" && !event.target.othermeasurementUnit.value) {
-            notify('error', "Please enter the other measurement unit first.")
+        if (!isB2B && Number(finaceDetails.totalAmount || 0) <= 0) {
+            setLocalNotice({ type: 'error', message: 'Cash orders require a total amount greater than zero before submission.' })
+        } else if (!isB2B && !finaceDetails.paymentStatus) {
+            setLocalNotice({ type: 'error', message: 'Please select a payment status for the cash order before submitting.' })
+        } else if (finaceDetails.paymentStatus === "Due" && parseInt(finaceDetails.bankCredit) + parseInt(finaceDetails.cashCredit) + parseInt(finaceDetails.dueAmount) !== parseInt(finaceDetails.totalAmount)) {
+            setLocalNotice({ type: 'error', message: 'For due payments, cash credit, bank credit, and due amount must together match the total amount.' })
         } else if (input.slipNumber > 50) {
-            notify('error', "Slip number should be less than or equal to 50.")
+            setLocalNotice({ type: 'error', message: 'The serial number cannot be greater than 50 within the same book.' })
         } else {
             insertData();
         }
@@ -280,20 +250,27 @@ const OrderEntry = ({ mode = 'standard' }) => {
                     <p className="page-subtitle mb-0">{isB2B ? 'Select the account, fill only the dispatch fields that matter, and save.' : 'Enter dispatch details, weights or quantity, and payment information.'}</p>
                 </div>
                 <div className="order-entry-generated">
-                    <div className="generated-pill">
+                    <div className="generated-inline-item">
                         <span>Book</span>
                         <strong>{bookNumber}</strong>
                     </div>
-                    <div className="generated-pill">
+                    <div className="generated-inline-item">
                         <span>Serial</span>
                         <strong>{slipNumber}</strong>
                     </div>
-                    <div className="generated-pill">
+                    <div className="generated-inline-item">
                         <span>Printed</span>
                         <strong>No</strong>
                     </div>
                 </div>
             </div>
+            {localNotice ? <div className={`app-alert app-alert-${localNotice.type} app-alert-inline`}>
+                <div>
+                    <strong>{localNotice.type === 'error' ? 'Please Review' : 'Notice'}</strong>
+                    <p className="mb-0">{localNotice.message}</p>
+                </div>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setLocalNotice(null)}></button>
+            </div> : null}
             <form onSubmit={formSubmitHandler}>
                 <div className="section-card">
                     <div className="section-card-header">
@@ -307,7 +284,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
                             <div>
                                 <span className="page-eyebrow">Customer Account</span>
                                 <h6 className="mb-1">Link this order to an account</h6>
-                                <p className="section-subtitle mb-0">Selecting an account prefills the customer name and site for faster B2B entry.</p>
+                                <p className="section-subtitle mb-0">Selecting an account links the customer name and GSTIN for faster B2B entry.</p>
                             </div>
                         </div>
                         <div className='row g-3 mt-1'>
@@ -324,7 +301,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
                                 <div className="account-summary-card">
                                     <span>Account Status</span>
                                     <strong>{selectedAccountId ? 'Selected' : customerAccounts.length}</strong>
-                                    <small>{selectedAccountId ? 'Name, site, and GSTIN are now linked to this order.' : 'Choose an account before you submit the B2B order.'}</small>
+                                    <small>{selectedAccountId ? 'Name and GSTIN are now linked to this order.' : 'Choose an account before you submit the B2B order.'}</small>
                                 </div>
                             </div>
                         </div>
@@ -346,26 +323,62 @@ const OrderEntry = ({ mode = 'standard' }) => {
                                 <input type="date" id="date" name="date" required className="form-control app-input" max={moment().format("YYYY-MM-DD")} value={date} onChange={dateChangeHandler} />
                             </div>
                         </div>
+                        <div className="col-lg-3 col-md-6">
+                            <div className="app-field">
+                                <label className="form-label" htmlFor='item'>Item:</label>
+                                <select id="item" className="form-select app-input" name="item" required value={item} onChange={itemChangeHandler}>
+                                    <option value=''></option>
+                                    {itemOptions.map((itemName) => <option key={itemName} value={itemName}>{itemName}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="generated-inline-row mt-3">
+                        <div className="generated-inline-item">
+                            <span>Measurement Unit</span>
+                            <strong>{measurementUnit || '-'}</strong>
+                        </div>
+                        {isB2B ? <div className="generated-inline-input">
+                            <label className="form-label" htmlFor="b2bRate">Rate</label>
+                            <input
+                                id="b2bRate"
+                                type="number"
+                                className="form-control app-input"
+                                min="0"
+                                step="0.01"
+                                value={finaceDetails.rate || 0}
+                                onChange={rateInputChangeHandler}
+                            />
+                        </div> : <div className="generated-inline-item">
+                            <span>Rate</span>
+                            <strong>{Number(finaceDetails.rate || 0).toFixed(2)}</strong>
+                        </div>}
+                        {isB2B ? <>
+                        <div className="generated-inline-item">
+                            <span>Name</span>
+                            <strong>{selectedAccount?.account_name || '-'}</strong>
+                        </div>
+                        <div className="generated-inline-item">
+                            <span>GSTIN</span>
+                            <strong>{selectedAccount?.gstin || '-'}</strong>
+                        </div>
+                        </> : null}
                     </div>
                     <div className='row g-3 mt-1'>
-                        <div className="col-lg-6">
-                            <div className="app-field">
-                                <label className="form-label" htmlFor='name'>Name:</label>
-                                <input type="text" className="form-control app-input" id="name" required name="name" placeholder="Customer Name" />
+                        {isB2B ? null : <>
+                            <div className="col-lg-6 col-md-6">
+                                <div className="app-field">
+                                    <label className="form-label" htmlFor='name'>Name:</label>
+                                    <input type="text" className="form-control app-input" id="name" required name="name" placeholder="Customer Name" />
+                                </div>
                             </div>
-                        </div>
-                        <div className="col-lg-6">
-                            <div className="app-field">
-                                <label className="form-label" htmlFor='site'>Site: </label>
-                                <input type="text" id="site" className="form-control app-input" required name="site" placeholder="Customer Site" />
+                            <div className="col-lg-6 col-md-6">
+                                <div className="app-field">
+                                    <label className="form-label" htmlFor='site'>Site: </label>
+                                    <input type="text" id="site" className="form-control app-input" required name="site" placeholder="Customer Site" />
+                                </div>
                             </div>
-                        </div>
-                        <div className="col-lg-6">
-                            <div className="app-field">
-                                <label className="form-label" htmlFor='customerGstin'>Customer GSTIN:</label>
-                                <input type="text" id="customerGstin" className="form-control app-input" name="customerGstin" placeholder="Customer GST number" />
-                            </div>
-                        </div>
+                        </>}
                     </div>
                     <div className='row g-3 mt-1'>
                         <div className="col-lg-3 col-md-6">
@@ -374,46 +387,13 @@ const OrderEntry = ({ mode = 'standard' }) => {
                                 <input type="text" className="form-control app-input" id="lorryNumber" required name="lorryNumber" placeholder="Lorry Number" />
                             </div>
                         </div>
-                        <div className="col-lg-3 col-md-6">
+                        {isB2B ? <div className="col-lg-3 col-md-6">
                             <div className="app-field">
-                                <label className="form-label" htmlFor='item'>Item:</label>
-                                <select id="item" className="form-select app-input" name="item" required value={item} onChange={itemChangeHandler}>
-                                    <option value=''></option>
-                                    <option value="10mm">10 mm Chips</option>
-                                    <option value="20mm">20 mm Chips</option>
-                                    <option value="Dust">Dust</option>
-                                    <option value="Sand">Sand</option>
-                                    <option value="Local Sand">Local Sand</option>
-                                    <option value="Metal">Metal</option>
-                                    <option value="GSB">GSB</option>
-                                    <option value="Other">Others</option>
-                                </select>
-                            </div>
-                        </div>
-                        {!isDisabledOtherItem ? <div className="col-lg-3 col-md-6">
-                            <div className="app-field">
-                                <label className="form-label" htmlFor='otherItem'>Other Item:</label>
-                                <input type="text" className="form-control app-input" id="otherItem" required name="otherItem" placeholder="Enter Other Item" value={otherItem} onChange={otherItemChangeHandler} />
+                                <label className="form-label" htmlFor='site'>Delivery Point:</label>
+                                <input type="text" id="site" className="form-control app-input" required name="site" placeholder="Delivery point / site" />
                             </div>
                         </div> : null}
-                        <div className="col-lg-3 col-md-6">
-                            <div className="app-field">
-                                <label className="form-label" htmlFor='measurementUnit'>Measurement Unit:</label>
-                                <select id="measurementUnit" className="form-select app-input" name="measurementUnit" value={measurementUnit} onChange={measurementUnitChangeHandler} required>
-                                    <option value=''></option>
-                                    <option value="Cft">Cft</option>
-                                    <option value="Tons">Tons</option>
-                                    <option value="Other">Others</option>
-                                </select>
-                            </div>
-                        </div>
-                        {!isDisabledOtherMeasurnmentUnit ? <div className="col-lg-3 col-md-6">
-                            <div className="app-field">
-                                <label className="form-label" htmlFor='othermeasurementUnit'>Other Measurement Unit:</label>
-                                <input type="text" className="form-control app-input" id="othermeasurementUnit" required name="othermeasurementUnit" placeholder="Enter Other Item" value={otherMeasurementUnit} onChange={OtherMeasurementUnitChangeHandler} />
-                            </div>
-                        </div> : null}
-                        <div className="col-lg-3 col-md-6">
+                        <div className={isB2B ? "col-lg-6 col-md-6" : "col-lg-9 col-md-6"}>
                             <div className="app-field">
                                 <label className="form-label" htmlFor='remarks'>Remarks:</label>
                                 <input type="text" className="form-control app-input" id="remarks" name="remarks" placeholder="Optional remarks for challan" />
@@ -424,12 +404,14 @@ const OrderEntry = ({ mode = 'standard' }) => {
                 <FinanceDetails
                     isQuantityDisabled={false}
                     onChange={financeDetailsChangeHandler}
-                    onNotify={notify}
+                    onNotify={(type, message) => setLocalNotice({ type, message })}
                     value={finaceDetails}
                     reset={reset}
+                    hideRateField={true}
                     showTaxFields={isB2B}
+                    requirePaymentStatus={!isB2B}
                     measurementSelection={measurementUnit}
-                    measurementUnit={measurementUnit === 'Other' ? otherMeasurementUnit : measurementUnit}
+                    measurementUnit={measurementUnit}
                 />
                 <div className='action-row mt-4'>
                     {lastSubmittedOrder ? <button type="button" className="btn btn-dark btn-lg" onClick={() => printInvoice(lastSubmittedOrder)}>Print Invoice</button> : null}
@@ -447,43 +429,41 @@ const OrderEntry = ({ mode = 'standard' }) => {
                 </div>
                 <div className="invoice-sheet">
                     <div className="challan-preview-grid">
-                        {Array.from({ length: 6 }).map((_, index) => (
-                            <div className="challan-preview-card" key={`${lastSubmittedOrder.invoiceNumber}-${index}`}>
-                                <div className="challan-preview-topline">Railway Gate Pass / Challan</div>
-                                <div className="challan-preview-header">
-                                    <div className="challan-brand-block">
-                                        <p className="challan-brand-name">P. K. ENTERPRISES</p>
-                                        <p className="challan-brand-copy">Harinagar - 845106, Bihar</p>
-                                        <p className="challan-brand-copy">GSTIN - 10AENPK8366A1ZQ</p>
-                                    </div>
-                                    <div className="challan-meta-block">
-                                        <div className="challan-meta-row">
-                                            <span>Sl. No.</span>
-                                            <strong>{lastSubmittedOrder.invoiceNumber}</strong>
-                                        </div>
-                                        <div className="challan-meta-row">
-                                            <span>Date</span>
-                                            <strong>{lastSubmittedOrder.date}</strong>
-                                        </div>
-                                    </div>
+                        <div className="challan-preview-card">
+                            <div className="challan-preview-topline">Railway Gate Pass / Challan</div>
+                            <div className="challan-preview-header">
+                                <div className="challan-brand-block">
+                                    <p className="challan-brand-name">P. K. ENTERPRISES</p>
+                                    <p className="challan-brand-copy">Harinagar - 845106, Bihar</p>
+                                    <p className="challan-brand-copy">GSTIN - 10AENPK8366A1ZQ</p>
                                 </div>
-                                <div className="challan-body-grid">
-                                    <div className="challan-row challan-row-full"><span>M/s</span><strong>{lastSubmittedOrder.name}</strong></div>
-                                    <div className="challan-row"><span>GSTN</span><strong>{lastSubmittedOrder.customerGstin || '-'}</strong></div>
-                                    <div className="challan-row"><span>Dly. Point</span><strong>{lastSubmittedOrder.site || '-'}</strong></div>
-                                    <div className="challan-row"><span>Material/Size</span><strong>{lastSubmittedOrder.item}</strong></div>
-                                    <div className="challan-row"><span>{lastSubmittedOrder.showQuantity ? 'Quantity' : 'Gross'}</span><strong>{lastSubmittedOrder.showQuantity ? lastSubmittedOrder.quantity : lastSubmittedOrder.gross}</strong></div>
-                                    <div className="challan-row"><span>{lastSubmittedOrder.showQuantity ? 'Measurement' : 'Tare'}</span><strong>{lastSubmittedOrder.showQuantity ? lastSubmittedOrder.measurementUnit : lastSubmittedOrder.tare}</strong></div>
-                                    {!lastSubmittedOrder.showQuantity ? <div className="challan-row"><span>Net</span><strong>{lastSubmittedOrder.net}</strong></div> : <div className="challan-row"><span>Source</span><strong>{lastSubmittedOrder.source || '-'}</strong></div>}
-                                    <div className="challan-row"><span>Rate</span><strong>{formatCurrency(lastSubmittedOrder.rate)}</strong></div>
-                                    <div className="challan-row"><span>MOD</span><strong>{lastSubmittedOrder.paymentStatus}</strong></div>
-                                    <div className="challan-row"><span>Amount</span><strong>{formatCurrency(lastSubmittedOrder.amount)}</strong></div>
-                                    <div className="challan-row"><span>FRT</span><strong>{formatCurrency(lastSubmittedOrder.freight)}</strong></div>
-                                    <div className="challan-row challan-row-full"><span>Vehicle No.</span><strong>{lastSubmittedOrder.lorryNumber || '-'}</strong></div>
-                                    <div className="challan-row challan-row-full"><span>Remarks</span><strong>{lastSubmittedOrder.remarks || '-'}</strong></div>
+                                <div className="challan-meta-block">
+                                    <div className="challan-meta-row">
+                                        <span>Sl. No.</span>
+                                        <strong>{lastSubmittedOrder.invoiceNumber}</strong>
+                                    </div>
+                                    <div className="challan-meta-row">
+                                        <span>Date</span>
+                                        <strong>{lastSubmittedOrder.date}</strong>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
+                            <div className="challan-body-grid">
+                                <div className="challan-row challan-row-full"><span>M/s</span><strong>{lastSubmittedOrder.name}</strong></div>
+                                <div className="challan-row"><span>GSTN</span><strong>{lastSubmittedOrder.customerGstin || '-'}</strong></div>
+                                <div className="challan-row"><span>Dly. Point</span><strong>{lastSubmittedOrder.site || '-'}</strong></div>
+                                <div className="challan-row"><span>Material/Size</span><strong>{lastSubmittedOrder.item}</strong></div>
+                                <div className="challan-row"><span>{lastSubmittedOrder.showQuantity ? 'Quantity' : 'Gross'}</span><strong>{lastSubmittedOrder.showQuantity ? lastSubmittedOrder.quantity : lastSubmittedOrder.gross}</strong></div>
+                                <div className="challan-row"><span>{lastSubmittedOrder.showQuantity ? 'Measurement' : 'Tare'}</span><strong>{lastSubmittedOrder.showQuantity ? lastSubmittedOrder.measurementUnit : lastSubmittedOrder.tare}</strong></div>
+                                {!lastSubmittedOrder.showQuantity ? <div className="challan-row"><span>Net</span><strong>{lastSubmittedOrder.net}</strong></div> : <div className="challan-row"><span>Source</span><strong>{lastSubmittedOrder.source || '-'}</strong></div>}
+                                <div className="challan-row"><span>Rate</span><strong>{formatCurrency(lastSubmittedOrder.rate)}</strong></div>
+                                <div className="challan-row"><span>MOD</span><strong>{lastSubmittedOrder.paymentStatus}</strong></div>
+                                <div className="challan-row"><span>Amount</span><strong>{formatCurrency(lastSubmittedOrder.amount)}</strong></div>
+                                <div className="challan-row"><span>FRT</span><strong>{formatCurrency(lastSubmittedOrder.freight)}</strong></div>
+                                <div className="challan-row challan-row-full"><span>Vehicle No.</span><strong>{lastSubmittedOrder.lorryNumber || '-'}</strong></div>
+                                <div className="challan-row challan-row-full"><span>Remarks</span><strong>{lastSubmittedOrder.remarks || '-'}</strong></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div> : null}

@@ -5,6 +5,7 @@ import { getDueAccounts, markDueOrderPaid } from '../../../controllers/dueAccoun
 import { find, findById } from '../../../controllers/find.js';
 import { getOrderHistory } from '../../../controllers/history.js';
 import { importOrders } from '../../../controllers/importData.js';
+import { createItem, createMeasurementUnit, listItemCatalog, listMeasurementUnits, listRateHistory, updateItemRate, updateItemStatus } from '../../../controllers/items.js';
 import { insert, nextSequence } from '../../../controllers/insert.js';
 import { listRates, upsertRate } from '../../../controllers/rates.js';
 import { listReceipts, markReceiptPrinted } from '../../../controllers/receipts.js';
@@ -32,6 +33,25 @@ const handlers = {
   rates: {
     GET: listRates,
     POST: upsertRate
+  },
+  'items/catalog': {
+    GET: listItemCatalog
+  },
+  items: {
+    POST: createItem
+  },
+  'items/status': {
+    POST: updateItemStatus
+  },
+  'items/history': {
+    GET: listRateHistory
+  },
+  'measurement-units': {
+    GET: listMeasurementUnits,
+    POST: createMeasurementUnit
+  },
+  'item-rates': {
+    POST: updateItemRate
   },
   import: {
     POST: importOrders

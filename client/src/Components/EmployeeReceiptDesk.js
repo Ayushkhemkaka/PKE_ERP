@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
-import { buildInvoiceHtml, buildPrintableOrder, formatCurrency } from '../utils/receiptUtils.js';
+import { buildInvoiceHtml, buildPrintableOrder } from '../utils/receiptUtils.js';
 
 const EmployeeReceiptDesk = () => {
     const { notify } = useAppContext();
@@ -48,6 +48,7 @@ const EmployeeReceiptDesk = () => {
             setReceipts((current) => current.filter((entry) => entry.id !== receipt.id));
             setSelectedReceipt((current) => current?.id === receipt.id ? null : current);
             await loadReceipts();
+            window.setTimeout(() => window.location.reload(), 250);
         } catch (error) {
             printWindow.close();
             notify('error', error.response?.data?.message || 'Unable to mark the receipt as printed.');
@@ -85,48 +86,16 @@ const EmployeeReceiptDesk = () => {
                         <div className="section-card-header">
                             <div>
                                 <h5 className="mb-1">Receipt Preview</h5>
-                                <p className="section-subtitle mb-0">Print from this page to update the print status for the selected receipt.</p>
+                                <p className="section-subtitle mb-0">This preview matches the actual print area. Print from this page to update the print status for the selected receipt.</p>
                             </div>
                             <div className="page-badge">{selectedReceipt.isPrinted ? 'Printed' : 'Pending'}</div>
                         </div>
                         <div className="invoice-sheet">
-                            <div className="challan-preview-grid">
-                                <div className="challan-preview-card">
-                                    <div className="challan-preview-topline">Railway Gate Pass / Challan</div>
-                                    <div className="challan-preview-header">
-                                        <div className="challan-brand-block">
-                                            <p className="challan-brand-name">P. K. ENTERPRISES</p>
-                                            <p className="challan-brand-copy">Harinagar - 845106, Bihar</p>
-                                            <p className="challan-brand-copy">GSTIN - 10AENPK8366A1ZQ</p>
-                                        </div>
-                                        <div className="challan-meta-block">
-                                            <div className="challan-meta-row">
-                                                <span>Sl. No.</span>
-                                                <strong>{selectedReceipt.invoiceNumber}</strong>
-                                            </div>
-                                            <div className="challan-meta-row">
-                                                <span>Date</span>
-                                                <strong>{selectedReceipt.date?.split('T')[0] || selectedReceipt.date}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="challan-body-grid">
-                                        <div className="challan-row challan-row-full"><span>M/s</span><strong>{selectedReceipt.name}</strong></div>
-                                        <div className="challan-row"><span>GSTN</span><strong>{selectedReceipt.customerGstin || '-'}</strong></div>
-                                        <div className="challan-row"><span>Dly. Point</span><strong>{selectedReceipt.site || '-'}</strong></div>
-                                        <div className="challan-row"><span>Material/Size</span><strong>{selectedReceipt.item}</strong></div>
-                                        <div className="challan-row"><span>{selectedReceipt.showQuantity ? 'Quantity' : 'Gross'}</span><strong>{selectedReceipt.showQuantity ? selectedReceipt.quantity : selectedReceipt.gross}</strong></div>
-                                        <div className="challan-row"><span>{selectedReceipt.showQuantity ? 'Measurement' : 'Tare'}</span><strong>{selectedReceipt.showQuantity ? selectedReceipt.measurementUnit : selectedReceipt.tare}</strong></div>
-                                        {!selectedReceipt.showQuantity ? <div className="challan-row"><span>Net</span><strong>{selectedReceipt.net}</strong></div> : <div className="challan-row"><span>Source</span><strong>{selectedReceipt.source || '-'}</strong></div>}
-                                        <div className="challan-row"><span>Rate</span><strong>{formatCurrency(selectedReceipt.rate)}</strong></div>
-                                        <div className="challan-row"><span>MOD</span><strong>{selectedReceipt.paymentStatus}</strong></div>
-                                        <div className="challan-row"><span>Amount</span><strong>{formatCurrency(selectedReceipt.amount)}</strong></div>
-                                        <div className="challan-row"><span>FRT</span><strong>{formatCurrency(selectedReceipt.freight)}</strong></div>
-                                        <div className="challan-row challan-row-full"><span>Vehicle No.</span><strong>{selectedReceipt.lorryNumber || '-'}</strong></div>
-                                        <div className="challan-row challan-row-full"><span>Remarks</span><strong>{selectedReceipt.remarks || '-'}</strong></div>
-                                    </div>
-                                </div>
-                            </div>
+                            <iframe
+                                title={`Receipt preview ${selectedReceipt.invoiceNumber}`}
+                                className="receipt-preview-frame"
+                                srcDoc={buildInvoiceHtml(selectedReceipt, selectedReceipt.orderType === 'B2B' ? 'B2B Order Invoice' : 'Order Entry Invoice')}
+                            />
                         </div>
                         <div className='action-row mt-4'>
                             <button type="button" className="btn btn-dark btn-lg" onClick={() => printReceipt(selectedReceipt)}>Print Receipt</button>

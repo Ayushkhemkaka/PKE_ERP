@@ -1,3 +1,0 @@
-ALTER TABLE entry ADD COLUMN IF NOT EXISTS printed_by VARCHAR(255) NULL AFTER is_printed;
-ALTER TABLE normal_order_entry ADD COLUMN IF NOT EXISTS printed_by VARCHAR(255) NULL AFTER is_printed;
-ALTER TABLE b2b_order_entry ADD COLUMN IF NOT EXISTS printed_by VARCHAR(255) NULL AFTER is_printed;

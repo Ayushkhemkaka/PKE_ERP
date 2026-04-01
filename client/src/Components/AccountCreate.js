@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext.js';
 
 const initialState = {
     accountName: '',
-    site: '',
+    address: '',
     contactName: '',
     phone: '',
     gstin: ''
@@ -20,7 +20,8 @@ const AccountCreate = () => {
         try {
             const response = await axios.post('/data/accounts', {
                 ...formState,
-                updatedBy: currentUser?.fullName || currentUser?.email || 'System'
+                updatedBy: currentUser?.fullName || currentUser?.email || 'System',
+                updatedByUserId: currentUser?.id || null
             });
             notify('success', response.data.message);
             setFormState(initialState);
@@ -50,8 +51,8 @@ const AccountCreate = () => {
                         </div>
                         <div className="col-lg-6">
                             <div className="app-field">
-                                <label className="form-label" htmlFor='site'>Site</label>
-                                <input id="site" className="form-control app-input" value={formState.site} onChange={(event) => setFormState((prev) => ({ ...prev, site: event.target.value }))} placeholder="Primary site / delivery point" />
+                                <label className="form-label" htmlFor='address'>Address</label>
+                                <input id="address" className="form-control app-input" value={formState.address} onChange={(event) => setFormState((prev) => ({ ...prev, address: event.target.value }))} placeholder="Billing or office address" />
                             </div>
                         </div>
                         <div className="col-lg-6">

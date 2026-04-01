@@ -2,11 +2,12 @@ import { getConnection } from "../configs/dbConn.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { buildEntryId, getNextBookSlip } from "./insert.js";
 import { logUserWork } from "../utils/workTracking.js";
+import { fetchCatalogRows } from "./items.js";
 
 const parseNumber = (value) => {
     const numericValue = Number(value ?? 0);
     return Number.isNaN(numericValue) ? 0 : numericValue;
-}
+};
 
 const normalizeImportRow = (row) => {
     const item = row.item || row.Item || row.ITEM || '';
@@ -32,11 +33,12 @@ const normalizeImportRow = (row) => {
         bankCredit: parseNumber(row.bankCredit || row['Bank Credit']),
         source: row.source || row.Source || 'Plant'
     };
-}
+};
 
 const importOrders = async (req, res) => {
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
     const createdBy = req.body?.createdBy || 'System';
+    const createdByUserId = req.body?.createdByUserId || null;
 
     if (!rows.length) {
         sendError(res, "No rows were provided for import.");
@@ -48,6 +50,7 @@ const importOrders = async (req, res) => {
     try {
         await client.beginTransaction();
         const insertedIds = [];
+        const itemCatalog = await fetchCatalogRows({ includeInactive: true });
 
         for (const rawRow of rows) {
             const row = normalizeImportRow(rawRow);
@@ -55,30 +58,42 @@ const importOrders = async (req, res) => {
                 continue;
             }
 
+            const selectedItem = itemCatalog.find((catalogItem) => catalogItem.itemName === row.item);
+            const selectedRate = selectedItem?.measurementUnits?.find((unit) => unit.measurementUnitName === row.measurementUnit) || null;
             const nextSequence = await getNextBookSlip(client, row.date);
             const id = buildEntryId(nextSequence.bookNumber, nextSequence.slipNumber, row.date);
 
             await client.execute(
-                `INSERT INTO normal_order_entry(
-                    id, bookNumber, date, name, site, lorryNumber, item, measurementUnit,
-                    quantity, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
-                    paymentStatus, cashCredit, bankCredit, dueAmount, due_on_create, due_paid,
-                    source, slipNumber, lastUpdatedBy, createdBy
+                `INSERT INTO order_entry(
+                    id, bookNumber, orderType, customerAccountId, customerAccountName, itemId, measurementUnitId, itemRateId, customerGstin,
+                    date, name, site, lorryNumber, item, measurementUnit,
+                    quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
+                    paymentStatus, dueAmount, due_on_create, due_paid, cashCredit, bankCredit, source, remarks, slipNumber, lastUpdatedBy, createdBy
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )`,
                 [
                     id,
                     nextSequence.bookNumber,
+                    'Standard',
+                    null,
+                    null,
+                    selectedItem?.id || null,
+                    selectedRate?.measurementUnitId || selectedItem?.defaultMeasurementUnitId || null,
+                    selectedRate?.itemRateId || null,
+                    null,
                     row.date,
                     row.name,
                     row.site,
                     row.lorryNumber,
                     row.item,
                     row.measurementUnit,
+                    row.quantity,
+                    0,
+                    0,
                     row.quantity,
                     row.rate,
                     row.amount,
@@ -88,62 +103,25 @@ const importOrders = async (req, res) => {
                     row.taxAmount,
                     row.totalAmount,
                     row.paymentStatus,
-                    row.cashCredit,
-                    row.bankCredit,
                     row.dueAmount,
                     row.dueAmount,
                     0,
+                    row.cashCredit,
+                    row.bankCredit,
                     row.source,
+                    '',
                     nextSequence.slipNumber,
                     createdBy,
                     createdBy
                 ]
             );
 
-            await client.execute(
-                `INSERT INTO entry(
-                    id, bookNumber, date, name, site, lorryNumber, item, measurementUnit,
-                    quantity, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
-                    paymentStatus, dueAmount, due_on_create, due_paid, cashCredit, bankCredit, source, slipNumber, lastUpdatedBy, createdBy
-                ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                )`,
-                [
-                    id,
-                    nextSequence.bookNumber,
-                    row.date,
-                    row.name,
-                    row.site,
-                    row.lorryNumber,
-                    row.item,
-                    row.measurementUnit,
-                    row.quantity,
-                    row.rate,
-                    row.amount,
-                    row.discount,
-                    row.freight,
-                    row.taxPercent,
-                    row.taxAmount,
-                    row.totalAmount,
-                    row.paymentStatus,
-                    row.dueAmount,
-                    row.dueAmount,
-                    0,
-                    row.cashCredit,
-                    row.bankCredit,
-                    row.source,
-                    nextSequence.slipNumber,
-                    createdBy,
-                    createdBy
-                ]
-            );
             insertedIds.push(id);
         }
 
         await client.commit();
         await logUserWork({
+            userId: createdByUserId,
             userName: createdBy,
             userEmail: createdBy.includes('@') ? createdBy : null,
             actionType: 'import_orders',
@@ -158,6 +136,6 @@ const importOrders = async (req, res) => {
     } finally {
         client.release();
     }
-}
+};
 
-export { importOrders }
+export { importOrders };

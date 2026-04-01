@@ -1,25 +1,36 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext.js';
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const DueAccountsPage = () => {
+const DueAccountsPage = ({ fixedMode = '' }) => {
     const { notify, currentUser } = useAppContext();
-    const [mode, setMode] = useState('b2b');
+    const location = useLocation();
+    const queryMode = useMemo(() => {
+        if (fixedMode === 'normal' || fixedMode === 'b2b') {
+            return fixedMode;
+        }
+        const searchParams = new URLSearchParams(location.search);
+        return searchParams.get('mode') === 'normal' ? 'normal' : 'b2b';
+    }, [fixedMode, location.search]);
+    const [mode, setMode] = useState(queryMode);
     const [accounts, setAccounts] = useState([]);
     const [orders, setOrders] = useState([]);
     const [selectedAccountId, setSelectedAccountId] = useState('');
+    const [invoiceId, setInvoiceId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdatingId, setIsUpdatingId] = useState('');
 
-    const loadDueAccounts = useCallback(async (nextMode, accountId = '') => {
+    const loadDueAccounts = useCallback(async (nextMode, accountId = '', nextInvoiceId = '') => {
         setIsLoading(true);
         try {
             const response = await axios.get('/data/due-accounts', {
                 params: {
                     mode: nextMode,
-                    accountId
+                    accountId,
+                    invoiceId: nextInvoiceId
                 }
             });
             setAccounts(response.data.data.accounts || []);
@@ -32,8 +43,14 @@ const DueAccountsPage = () => {
     }, [notify]);
 
     useEffect(() => {
-        loadDueAccounts(mode, selectedAccountId);
-    }, [mode, selectedAccountId, loadDueAccounts]);
+        setMode(queryMode);
+        setSelectedAccountId('');
+        setInvoiceId('');
+    }, [queryMode]);
+
+    useEffect(() => {
+        loadDueAccounts(mode, selectedAccountId, invoiceId);
+    }, [mode, selectedAccountId, invoiceId, loadDueAccounts]);
 
     const markPaid = async (id) => {
         setIsUpdatingId(id);
@@ -41,10 +58,11 @@ const DueAccountsPage = () => {
             const response = await axios.post('/data/due-accounts/pay', {
                 id,
                 mode,
-                updatedBy: currentUser?.fullName || currentUser?.email || 'System'
+                updatedBy: currentUser?.fullName || currentUser?.email || 'System',
+                updatedByUserId: currentUser?.id || null
             });
             notify('success', response.data.message);
-            loadDueAccounts(mode, selectedAccountId);
+            loadDueAccounts(mode, selectedAccountId, invoiceId);
         } catch (error) {
             notify('error', error.response?.data?.message || 'Unable to mark the order as paid.');
         } finally {
@@ -57,19 +75,19 @@ const DueAccountsPage = () => {
             <div className="page-heading">
                 <div>
                     <span className="page-eyebrow">Due Tracking</span>
-                    <h2 className="mb-2">Due Accounts</h2>
-                    <p className="page-subtitle mb-0">Review pending dues for B2B accounts and general parties, then mark individual orders as paid directly from this screen.</p>
+                    <h2 className="mb-2">{mode === 'b2b' ? 'B2B Due Accounts' : 'Cash Due Parties'}</h2>
+                    <p className="page-subtitle mb-0">{mode === 'b2b' ? 'Review pending dues for B2B accounts and mark individual orders as paid.' : 'Review pending dues for cash/general parties and mark individual orders as paid.'}</p>
                 </div>
                 <div className="page-badge">Due control</div>
             </div>
 
             <div className="section-card">
-                <div className="due-mode-switch">
+                {!fixedMode ? <div className="due-mode-switch">
                     <button type="button" className={`btn ${mode === 'b2b' ? 'btn-success' : 'btn-outline-dark'}`} onClick={() => { setMode('b2b'); setSelectedAccountId(''); }}>B2B Due Accounts</button>
                     <button type="button" className={`btn ${mode === 'normal' ? 'btn-success' : 'btn-outline-dark'}`} onClick={() => { setMode('normal'); setSelectedAccountId(''); }}>General Due Parties</button>
-                </div>
+                </div> : null}
                 <div className="row g-3 mt-2">
-                    <div className="col-lg-6">
+                    <div className="col-lg-4">
                         <div className="app-field">
                             <label className="form-label" htmlFor="dueAccountSelect">{mode === 'b2b' ? 'Select B2B account' : 'Select general party'}</label>
                             <select
@@ -81,24 +99,37 @@ const DueAccountsPage = () => {
                                 <option value="">Choose an account to inspect due orders</option>
                                 {accounts.map((account) => (
                                     <option key={account.id} value={account.id}>
-                                        {account.account_name} {account.site ? `- ${account.site}` : ''}
+                                        {account.account_name} {account.address ? `- ${account.address}` : ''}
                                     </option>
                                 ))}
                             </select>
                         </div>
                     </div>
-                    <div className="col-lg-6">
+                    <div className="col-lg-4">
+                        <div className="app-field">
+                            <label className="form-label" htmlFor="dueInvoiceId">Invoice Number</label>
+                            <input
+                                id="dueInvoiceId"
+                                className="form-control app-input"
+                                type="text"
+                                value={invoiceId}
+                                onChange={(event) => setInvoiceId(event.target.value)}
+                                placeholder={mode === 'b2b' ? 'Filter B2B due by invoice id' : 'Filter cash due by invoice id'}
+                            />
+                        </div>
+                    </div>
+                    <div className="col-lg-4">
                         <div className="analytics-card h-100">
                             <span>Accounts with open due</span>
                             <strong>{accounts.length}</strong>
-                            <small>{selectedAccountId ? 'Showing due orders for the selected account or party.' : 'Choose an account to load the due order list.'}</small>
+                            <small>{selectedAccountId || invoiceId ? 'Showing due orders for the selected account, party, or invoice.' : 'Choose an account or enter an invoice id to load due orders.'}</small>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="section-card mt-4">
-                {isLoading ? <p className="mb-0">Loading due data...</p> : !selectedAccountId ? <p className="mb-0 text-muted">Select an account above to view its due orders.</p> : (
+                {isLoading ? <p className="mb-0">Loading due data...</p> : !(selectedAccountId || invoiceId) ? <p className="mb-0 text-muted">Select an account or enter an invoice number above to view due orders.</p> : (
                     <div className="table-responsive">
                         <table className="table table-hover app-table align-middle">
                             <thead>

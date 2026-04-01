@@ -1,13 +1,26 @@
 import { query } from "../configs/dbConn.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
-import { logUserWork } from "../utils/workTracking.js";
+import { updateItemRate } from "./items.js";
 
 const listRates = async (_req, res) => {
     try {
         const rates = await query(
-            `SELECT id, item_name, measurement_unit, rate, created_by, updated_by, created_at, updated_at
-             FROM item_rate
-             ORDER BY item_name ASC, measurement_unit ASC`
+            `SELECT
+                ir.id,
+                ir.item_id,
+                ir.measurement_unit_id,
+                i.item_name,
+                mu.unit_name AS measurement_unit,
+                ir.rate,
+                ir.is_active,
+                ir.created_by,
+                ir.updated_by,
+                ir.created_at,
+                ir.updated_at
+             FROM item_rate ir
+             INNER JOIN item i ON i.id = ir.item_id
+             INNER JOIN measurement_unit mu ON mu.id = ir.measurement_unit_id
+             ORDER BY i.item_name ASC, mu.unit_name ASC`
         );
         sendSuccess(res, "Rates fetched successfully.", rates);
     } catch (error) {
@@ -18,38 +31,12 @@ const listRates = async (_req, res) => {
 
 const upsertRate = async (req, res) => {
     const body = req.body || {};
-    const itemName = body.itemName?.trim();
-    const measurementUnit = body.measurementUnit?.trim();
-    const rate = Number(body.rate);
-    const updatedBy = body.updatedBy || 'System';
-
-    if (!itemName || !measurementUnit || Number.isNaN(rate)) {
-        sendError(res, "Item, measurement unit, and rate are required.");
+    if (body.itemId && body.measurementUnitId) {
+        await updateItemRate(req, res);
         return;
     }
 
-    try {
-        await query(
-            `INSERT INTO item_rate(item_name, measurement_unit, rate, created_by, updated_by)
-             VALUES (?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE rate = VALUES(rate), updated_by = VALUES(updated_by), updated_at = CURRENT_TIMESTAMP`,
-            [itemName, measurementUnit, rate, updatedBy, updatedBy]
-        );
-
-        await logUserWork({
-            userName: updatedBy,
-            userEmail: updatedBy.includes('@') ? updatedBy : null,
-            actionType: 'upsert_rate',
-            entityType: 'item_rate',
-            entityId: `${itemName}:${measurementUnit}`,
-            details: { itemName, measurementUnit, rate }
-        });
-
-        sendSuccess(res, "Rate saved successfully.");
-    } catch (error) {
-        console.error('Upsert rate failed', error);
-        sendError(res, "Unable to save the rate.", 500);
-    }
+    sendError(res, "Use the item and measurement unit selection to update rates.");
 }
 
 export { listRates, upsertRate }

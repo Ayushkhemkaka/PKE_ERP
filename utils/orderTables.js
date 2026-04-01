@@ -20,11 +20,7 @@ const normalizeOrderMode = (value) => {
 }
 
 const getOrderTableName = (mode) => {
-    const normalizedMode = normalizeOrderMode(mode);
-    if (normalizedMode === ORDER_MODES.b2b) {
-        return 'b2b_order_entry';
-    }
-    return 'normal_order_entry';
+    return 'order_entry';
 }
 
 export { ORDER_MODES, normalizeOrderMode, getOrderTableName };

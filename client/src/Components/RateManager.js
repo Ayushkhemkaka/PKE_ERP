@@ -2,54 +2,55 @@ import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
-const defaultRates = [
-    { itemName: '10mm', measurementUnit: 'Cft' },
-    { itemName: '20mm', measurementUnit: 'Cft' },
-    { itemName: 'Dust', measurementUnit: 'Cft' },
-    { itemName: 'Sand', measurementUnit: 'Cft' },
-    { itemName: 'Local Sand', measurementUnit: 'Cft' },
-    { itemName: 'Metal', measurementUnit: 'Tons' },
-    { itemName: 'GSB', measurementUnit: 'Tons' }
-];
-
 const RateManager = () => {
     const { currentUser, notify } = useAppContext();
-    const [rates, setRates] = useState([]);
+    const [items, setItems] = useState([]);
+    const [measurementUnits, setMeasurementUnits] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const loadRates = useCallback(async () => {
+    const loadData = useCallback(async () => {
         try {
-            const response = await axios.get('/data/rates');
-            setRates(response.data.data);
+            const [itemsResponse, unitsResponse] = await Promise.all([
+                axios.get('/data/items/catalog', { params: { includeInactive: true } }),
+                axios.get('/data/measurement-units')
+            ]);
+            setItems(itemsResponse.data.data || []);
+            setMeasurementUnits(unitsResponse.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load item rates.');
+            notify('error', error.response?.data?.message || 'Unable to load item setup.');
         } finally {
             setIsLoading(false);
         }
     }, [notify])
 
     useEffect(() => {
-        loadRates();
-    }, [loadRates]);
+        loadData();
+    }, [loadData]);
 
     const submitHandler = async (event) => {
         event.preventDefault();
-        const itemName = event.target.itemName.value;
-        const measurementUnit = event.target.measurementUnit.value;
+        const itemName = event.target.itemName.value.trim();
+        const measurementUnitId = event.target.measurementUnitId.value;
         const rate = event.target.rate.value;
 
+        if (!itemName || !measurementUnitId) {
+            notify('error', 'Item name and measurement unit are required.');
+            return;
+        }
+
         try {
-            const response = await axios.post('/data/rates', {
+            const response = await axios.post('/data/items', {
                 itemName,
-                measurementUnit,
+                measurementUnitId,
                 rate,
-                updatedBy: currentUser?.fullName || currentUser?.email || 'System'
+                updatedBy: currentUser?.fullName || currentUser?.email || 'System',
+                updatedByUserId: currentUser?.id || null
             });
             notify('success', response.data.message);
             event.target.reset();
-            loadRates();
+            loadData();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to save the rate.');
+            notify('error', error.response?.data?.message || 'Unable to save the item.');
         }
     }
 
@@ -57,17 +58,17 @@ const RateManager = () => {
         <section className='form-container'>
             <div className="page-heading">
                 <div>
-                    <span className="page-eyebrow">Pricing</span>
-                    <h2 className="mb-2">Item Rate Manager</h2>
-                    <p className="page-subtitle mb-0">Maintain the default rate for each item and measurement unit combination used in order entry.</p>
+                    <span className="page-eyebrow">Items</span>
+                    <h2 className="mb-2">Add Item</h2>
+                    <p className="page-subtitle mb-0">Create a new item with its default measurement unit and starting rate.</p>
                 </div>
-                <div className="page-badge">Rates</div>
+                <div className="page-badge">Add</div>
             </div>
             <div className="section-card">
                 <div className="section-card-header">
                     <div>
-                        <h5 className="mb-1">Set Item Rate</h5>
-                        <p className="section-subtitle mb-0">Save or update the standard rate that should auto-fill in order entry.</p>
+                        <h5 className="mb-1">New Item</h5>
+                        <p className="section-subtitle mb-0">The selected unit becomes the default unit for order entry autofill.</p>
                     </div>
                 </div>
                 <form onSubmit={submitHandler}>
@@ -75,20 +76,16 @@ const RateManager = () => {
                         <div className="col-lg-4 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor="itemName">Item</label>
-                                <input id="itemName" name="itemName" className="form-control app-input" required list="item-rate-list" placeholder="Select or type item" />
-                                <datalist id="item-rate-list">
-                                    {defaultRates.map((rate) => <option key={`${rate.itemName}-${rate.measurementUnit}`} value={rate.itemName} />)}
-                                </datalist>
+                                <input id="itemName" name="itemName" className="form-control app-input" required placeholder="Enter item name" />
                             </div>
                         </div>
                         <div className="col-lg-4 col-md-6">
                             <div className="app-field">
-                                <label className="form-label" htmlFor="measurementUnit">Measurement Unit</label>
-                                <input id="measurementUnit" name="measurementUnit" className="form-control app-input" required list="measurement-unit-list" placeholder="Cft / Tons / Other" />
-                                <datalist id="measurement-unit-list">
-                                    <option value="Cft" />
-                                    <option value="Tons" />
-                                </datalist>
+                                <label className="form-label" htmlFor="measurementUnitId">Measurement Unit</label>
+                                <select id="measurementUnitId" name="measurementUnitId" className="form-select app-input" required defaultValue="">
+                                    <option value="">Select unit</option>
+                                    {measurementUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.unit_name}</option>)}
+                                </select>
                             </div>
                         </div>
                         <div className="col-lg-4 col-md-6">
@@ -99,15 +96,15 @@ const RateManager = () => {
                         </div>
                     </div>
                     <div className="action-row mt-4">
-                        <button type="submit" className="btn btn-success btn-lg">Save Rate</button>
+                        <button type="submit" className="btn btn-success btn-lg">Save</button>
                     </div>
                 </form>
             </div>
             <div className="section-card mt-4">
                 <div className="section-card-header">
                     <div>
-                        <h5 className="mb-1">Current Rates</h5>
-                        <p className="section-subtitle mb-0">These values are used to auto-fill the rate field in order entry.</p>
+                        <h5 className="mb-1">Current Items</h5>
+                        <p className="section-subtitle mb-0">These items are available for order entry and can be managed from the other item pages.</p>
                     </div>
                 </div>
                 {isLoading ? <p className="mb-0">Loading rates...</p> : <div className="table-responsive">
@@ -115,18 +112,18 @@ const RateManager = () => {
                         <thead>
                             <tr>
                                 <th>Item</th>
-                                <th>Measurement Unit</th>
-                                <th>Rate</th>
-                                <th>Updated By</th>
+                                <th>Default Unit</th>
+                                <th>Default Rate</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {rates.map((rate) => (
-                                <tr key={rate.id}>
-                                    <td>{rate.item_name}</td>
-                                    <td>{rate.measurement_unit}</td>
-                                    <td>{Number(rate.rate).toFixed(2)}</td>
-                                    <td>{rate.updated_by}</td>
+                            {items.map((item) => (
+                                <tr key={item.id}>
+                                    <td>{item.itemName}</td>
+                                    <td>{item.defaultMeasurementUnitName || '-'}</td>
+                                    <td>{Number(item.defaultRate || 0).toFixed(2)}</td>
+                                    <td>{item.isActive ? 'Active' : 'Inactive'}</td>
                                 </tr>
                             ))}
                         </tbody>

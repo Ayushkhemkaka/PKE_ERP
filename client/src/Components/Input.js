@@ -23,7 +23,7 @@ const Input = (props) => {
         <div className="col-lg-4 col-md-6">
             <div className="app-field">
                 <label className="form-label" htmlFor={props.id}>{props.name + ":"}</label>
-                <input type="number" className="form-control app-input" id={props.id} name={props.id} placeholder={props.placeholder} step="any" min="0" disabled={props.isDisabled} value={input || ""} onChange={InputChangeHandler} required={props.isRequired}/>
+                <input type="number" className="form-control app-input" id={props.id} name={props.id} placeholder={props.placeholder} step={props.step || "any"} min="0" disabled={props.isDisabled} value={input || ""} onChange={InputChangeHandler} required={props.isRequired}/>
             </div>
         </div>
     )

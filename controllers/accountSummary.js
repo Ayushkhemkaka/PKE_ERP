@@ -7,22 +7,24 @@ const getAccountSummary = async (_req, res) => {
             `SELECT
                 ca.id,
                 ca.account_name,
-                ca.site,
+                ca.address,
                 ca.contact_name,
                 ca.phone,
                 ca.gstin,
-                COUNT(bo.id) AS order_count,
-                COALESCE(SUM(bo.totalAmount), 0) AS total_order_amount,
-                COALESCE(SUM(bo.cashCredit), 0) AS total_cash_credit,
-                COALESCE(SUM(bo.bankCredit), 0) AS total_bank_credit,
-                COALESCE(SUM(bo.dueAmount), 0) AS total_due,
-                COALESCE(SUM(bo.due_on_create), 0) AS due_on_create,
-                COALESCE(SUM(bo.due_paid), 0) AS due_paid,
-                COALESCE(SUM(CASE WHEN COALESCE(bo.quantity, 0) = 0 OR COALESCE(bo.amount, 0) = 0 THEN 1 ELSE 0 END), 0) AS pending_order_count
+                COUNT(oe.id) AS order_count,
+                COALESCE(SUM(oe.totalAmount), 0) AS total_order_amount,
+                COALESCE(SUM(oe.cashCredit), 0) AS total_cash_credit,
+                COALESCE(SUM(oe.bankCredit), 0) AS total_bank_credit,
+                COALESCE(SUM(oe.dueAmount), 0) AS total_due,
+                COALESCE(SUM(oe.due_on_create), 0) AS due_on_create,
+                COALESCE(SUM(oe.due_paid), 0) AS due_paid,
+                COALESCE(SUM(CASE WHEN COALESCE(oe.quantity, 0) = 0 OR COALESCE(oe.amount, 0) = 0 THEN 1 ELSE 0 END), 0) AS pending_order_count
             FROM customer_account ca
-            LEFT JOIN b2b_order_entry bo ON bo.customerAccountId = ca.id
+            LEFT JOIN order_entry oe
+                ON oe.customerAccountId = ca.id
+               AND LOWER(oe.orderType) = 'b2b'
             WHERE ca.is_active = 1
-            GROUP BY ca.id, ca.account_name, ca.site, ca.contact_name, ca.phone
+            GROUP BY ca.id, ca.account_name, ca.address, ca.contact_name, ca.phone, ca.gstin
             ORDER BY total_due DESC, ca.account_name ASC`
         );
 
