@@ -14,6 +14,8 @@
 /client/build
 /client/build_verify*
 /build_verify*
+/.next
+/out
 
 # misc
 .DS_Store

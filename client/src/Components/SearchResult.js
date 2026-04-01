@@ -1,19 +1,20 @@
-import React, { useState } from 'react'
+import React, { useState } from 'react';
+import axios from 'axios';
 import UpdateButton from './UpdateButton.js';
 import OrderUpdate from './OrderUpdate.js';
-import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
 const SearchResult = (props) => {
     const { notify } = useAppContext();
     const [isRowSelected, setIsRowSelected] = useState(false);
-    const [selectedData, setSelectedData] = useState("")
+    const [selectedData, setSelectedData] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
     const [isDisabled, setIsDisabled] = useState(false);
     const [initialData, setInitialData] = useState({});
     const [idx, setIdx] = useState(-1);
     const [historyData, setHistoryData] = useState({ changes: [], workLog: [] });
-    const selectedOrderTitle = selectedData?.id ? `${selectedData.name || 'Order'} • ${selectedData.id}` : 'No order selected';
+
+    const selectedOrderTitle = selectedData?.id ? `${selectedData.name || 'Order'} - ${selectedData.id}` : 'No order selected';
     const selectedOrderMeta = selectedData?.id
         ? `${selectedData.item || 'Item pending'} | Qty ${selectedData.quantity || 0}`
         : props.mode === 'b2b'
@@ -21,67 +22,66 @@ const SearchResult = (props) => {
             : 'Choose a general order to inspect payment and pricing details.';
 
     const rowSelectHandler = async (event, selectedRowData, selectedIndex) => {
-        console.log(event)
+        console.log(event);
         if (isRowSelected) {
             if (selectedRowData.key === selectedData.key) {
-                selectedData.selected = false
-                setSelectedData("")
-                setIsRowSelected(false)
+                selectedData.selected = false;
+                setSelectedData("");
+                setIsRowSelected(false);
             } else {
-                notify('error', "Only one row can be selected at a time.")
+                notify('error', 'Only one row can be selected at a time.');
             }
         } else {
-            setIsRowSelected(true)
-            selectedRowData.selected = true
+            setIsRowSelected(true);
+            selectedRowData.selected = true;
             setSelectedData(selectedRowData);
-            await findById(selectedRowData.id)
-            await loadHistory(selectedRowData.id)
-            setIdx(selectedIndex)
+            await findById(selectedRowData.id);
+            await loadHistory(selectedRowData.id);
+            setIdx(selectedIndex);
         }
-    }
+    };
 
     const findById = async (id) => {
-        await axios.get(`/data/findById`, {
-            "headers": {
+        await axios.get('/data/findById', {
+            headers: {
                 'Content-Type': 'application/json'
             },
-            "params": {
-                "Id": id,
-                "mode": props.mode || selectedData?.ordermode || 'normal'
+            params: {
+                Id: id,
+                mode: props.mode || selectedData?.ordermode || 'normal'
             }
-        }).then(res => {
-            const order = res.data.data[0]
+        }).then((res) => {
+            const order = res.data.data[0];
             setInitialData({
-                'name': order["name"],
-                'site': order["site"],
-                'source': order["source"],
-                'orderStatus': order["orderstatus"],
-                'quantity': order["quantity"],
-                'rate': order["rate"],
-                'amount': order["amount"],
-                'discount': order["discount"],
-                'freight': order["freight"],
-                'taxPercent': order["taxpercent"],
-                'taxAmount': order["taxamount"],
-                'totalAmount': order["totalamount"],
-                'paymentStatus': order["paymentstatus"],
-                'dueAmount': order["dueamount"],
-                'cashCredit': order["cashcredit"],
-                'bankCredit': order["bankcredit"]
-            })
-        }).catch(err => {
-            notify('error', err.response?.data?.message || 'Data for this order was not found.')
+                name: order.name,
+                site: order.site,
+                source: order.source,
+                orderStatus: order.orderstatus,
+                quantity: order.quantity,
+                rate: order.rate,
+                amount: order.amount,
+                discount: order.discount,
+                freight: order.freight,
+                taxPercent: order.taxpercent,
+                taxAmount: order.taxamount,
+                totalAmount: order.totalamount,
+                paymentStatus: order.paymentstatus,
+                dueAmount: order.dueamount,
+                cashCredit: order.cashcredit,
+                bankCredit: order.bankcredit
+            });
+        }).catch((err) => {
+            notify('error', err.response?.data?.message || 'Data for this order was not found.');
         });
+    };
 
-    }
-
-    const updateStatusHandler = (data) => {
+    const updateStatusHandler = () => {
         if (isRowSelected) {
-            setIsUpdating(true)
+            setIsUpdating(true);
         } else {
-            notify('error', "Select a row to update.")
+            notify('error', 'Select a row to update.');
         }
-    }
+    };
 
     const loadHistory = async (id) => {
         try {
@@ -92,27 +92,27 @@ const SearchResult = (props) => {
         } catch (err) {
             notify('error', err.response?.data?.message || 'Unable to load order history.');
         }
-    }
+    };
 
     const checkboxDisableHandler = (status) => {
-        isRowSelected ? setIsDisabled(status) : setIsDisabled(!status)
-    }
+        isRowSelected ? setIsDisabled(status) : setIsDisabled(!status);
+    };
 
-    const updateSuccessfulHandler = async (data) => {
-        setIsUpdating(false)
-        setIsRowSelected(false)
-        setIsDisabled(false)
+    const updateSuccessfulHandler = async () => {
+        setIsUpdating(false);
+        setIsRowSelected(false);
+        setIsDisabled(false);
         if (idx >= 0) {
-            props.tableData[idx].selected = false
+            props.tableData[idx].selected = false;
         }
         if (selectedData?.id) {
-            await findById(selectedData.id)
-            await loadHistory(selectedData.id)
+            await findById(selectedData.id);
+            await loadHistory(selectedData.id);
         }
-    }
+    };
 
     return (
-        <section className='form-container mt-4'>
+        <section className="form-container mt-4">
             <div className="page-heading page-heading-compact">
                 <div>
                     <span className="page-eyebrow">Results</span>
@@ -140,7 +140,7 @@ const SearchResult = (props) => {
             </div>
             <div className="table-responsive">
                 <table className="table table-hover app-table align-middle fetch-results-table">
-                    <thead style={{ "position": "sticky" }}>
+                    <thead style={{ position: 'sticky' }}>
                         <tr>
                             <th scope="col">#</th>
                             <th scope="col">Id</th>
@@ -149,13 +149,13 @@ const SearchResult = (props) => {
                             <th scope="col">Lorry Number</th>
                             <th scope="col">Item</th>
                             <th scope="col">Quantity</th>
-                            {props.columnList.map(column =>
+                            {props.columnList.map((column) => (
                                 <th scope="col" key={column}>{column}</th>
-                            )}
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {props.tableData.map((data, index) =>
+                        {props.tableData.map((data, index) => (
                             <tr key={data.key}>
                                 <th scope="row">
                                     <input
@@ -168,53 +168,63 @@ const SearchResult = (props) => {
                                     />
                                 </th>
                                 <td>{data.id}</td>
-                                <td>{data.date?.split("T")[0]}</td>
+                                <td>{data.date?.split('T')[0]}</td>
                                 <td>{data.name}</td>
                                 <td>{data.lorrynumber}</td>
                                 <td>{data.item}</td>
                                 <td>{data.quantity}</td>
-                                {props.columnList.map(column =>
+                                {props.columnList.map((column) => (
                                     <td key={`${data.id}-${column}`}>{data[column.toLowerCase()]}</td>
-                                )}
+                                ))}
                             </tr>
-                        )}
+                        ))}
                     </tbody>
                 </table>
             </div>
             <UpdateButton updateStatus={updateStatusHandler} data={selectedData} disableCheckbox={checkboxDisableHandler} />
-            {isUpdating ? <OrderUpdate updateSuccessful={updateSuccessfulHandler} initialData={initialData} data={selectedData} mode={props.mode} /> : <></>}
-            {selectedData?.id ? <div className="section-card mt-4">
-                <div className="section-card-header">
-                    <div>
-                        <h5 className="mb-1">Change History</h5>
-                        <p className="section-subtitle mb-0">Track field-level edits and user actions for the selected order.</p>
+            {isUpdating ? <OrderUpdate updateSuccessful={updateSuccessfulHandler} initialData={initialData} data={selectedData} mode={props.mode} /> : null}
+            {selectedData?.id ? (
+                <div className="section-card mt-4">
+                    <div className="section-card-header">
+                        <div>
+                            <h5 className="mb-1">Change History</h5>
+                            <p className="section-subtitle mb-0">Track field-level edits and user actions for the selected order.</p>
+                        </div>
+                    </div>
+                    <div className="row g-4">
+                        <div className="col-lg-6">
+                            <h6 className="mb-3">Field Changes</h6>
+                            {historyData.changes?.length ? (
+                                <div className="history-list">
+                                    {historyData.changes.map((entry) => (
+                                        <div className="history-item" key={`change-${entry.id}`}>
+                                            <strong>{entry.field}</strong>
+                                            <span>{`${entry.oldvalue || 'empty'} -> ${entry.newvalue || 'empty'}`}</span>
+                                            <small>{entry.createdby} | {new Date(entry.createddate).toLocaleString()}</small>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : <p className="mb-0 text-muted">No field changes recorded yet.</p>}
+                        </div>
+                        <div className="col-lg-6">
+                            <h6 className="mb-3">User Work Log</h6>
+                            {historyData.workLog?.length ? (
+                                <div className="history-list">
+                                    {historyData.workLog.map((entry) => (
+                                        <div className="history-item" key={`work-${entry.id}`}>
+                                            <strong>{entry.action_type}</strong>
+                                            <span>{entry.user_name}{entry.user_email ? ` (${entry.user_email})` : ''}</span>
+                                            <small>{new Date(entry.created_at).toLocaleString()}</small>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : <p className="mb-0 text-muted">No user activity recorded yet.</p>}
+                        </div>
                     </div>
                 </div>
-                <div className="row g-4">
-                    <div className="col-lg-6">
-                        <h6 className="mb-3">Field Changes</h6>
-                        {historyData.changes?.length ? <div className="history-list">
-                            {historyData.changes.map((entry) => <div className="history-item" key={`change-${entry.id}`}>
-                                <strong>{entry.field}</strong>
-                                <span>{entry.oldvalue || 'empty'} -> {entry.newvalue || 'empty'}</span>
-                                <small>{entry.createdby} | {new Date(entry.createddate).toLocaleString()}</small>
-                            </div>)}
-                        </div> : <p className="mb-0 text-muted">No field changes recorded yet.</p>}
-                    </div>
-                    <div className="col-lg-6">
-                        <h6 className="mb-3">User Work Log</h6>
-                        {historyData.workLog?.length ? <div className="history-list">
-                            {historyData.workLog.map((entry) => <div className="history-item" key={`work-${entry.id}`}>
-                                <strong>{entry.action_type}</strong>
-                                <span>{entry.user_name}{entry.user_email ? ` (${entry.user_email})` : ''}</span>
-                                <small>{new Date(entry.created_at).toLocaleString()}</small>
-                            </div>)}
-                        </div> : <p className="mb-0 text-muted">No user activity recorded yet.</p>}
-                    </div>
-                </div>
-            </div> : null}
+            ) : null}
         </section>
-    )
-}
+    );
+};
 
 export default SearchResult;

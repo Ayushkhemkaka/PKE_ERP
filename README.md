@@ -1,41 +1,32 @@
 # PKE ERP
 
-PKE ERP is now structured as a single deployable Node.js app for Hostinger:
-
-- the root app is Express
-- the React UI lives in `client/`
-- `npm install` at the repo root installs everything
-- `postinstall` builds the React client automatically
-- `npm start` runs one Node server and serves both the API and frontend
+PKE ERP is now structured as a single Next.js app so the frontend and backend can be deployed together.
 
 ## Project Structure
 
-- [server.js](/d:/Projects/pke_erp/pke_erp/server.js): root startup file
-- [server/app.js](/d:/Projects/pke_erp/pke_erp/server/app.js): Express app
-- [client/package.json](/d:/Projects/pke_erp/pke_erp/client/package.json): React client workspace
-- [client/src](/d:/Projects/pke_erp/pke_erp/client/src): frontend source
-- [routes](/d:/Projects/pke_erp/pke_erp/routes): API routes
-- [controllers](/d:/Projects/pke_erp/pke_erp/controllers): backend logic
+- [pages](/d:/Projects/pke_erp/pke_erp/pages): Next pages and API handlers
+- [next.config.mjs](/d:/Projects/pke_erp/pke_erp/next.config.mjs): rewrites `/auth/*` and `/data/*` to Next API routes
+- [client/src](/d:/Projects/pke_erp/pke_erp/client/src): existing ERP React UI reused inside Next
+- [controllers](/d:/Projects/pke_erp/pke_erp/controllers): backend business logic reused by Next API routes
+- [configs](/d:/Projects/pke_erp/pke_erp/configs): database connection setup
 
 ## Scripts
 
 - `npm install`
-  Installs the root Express app and the React client workspace.
+  Installs the Next.js app dependencies.
 - `npm run build`
-  Builds the React client from `client/`.
+  Builds the Next.js production app.
 - `npm start`
-  Starts the Express server and serves the built frontend.
-- `npm run client:start`
-  Runs the React client in development mode.
-- `npm run server`
-  Runs the backend with `nodemon`.
+  Starts the Next.js production server.
+- `npm run dev`
+  Starts the Next.js development server.
 
 ## Hostinger Deployment
 
-This repo is ready to deploy as one Node.js application.
+This repo is ready to deploy as one Next.js application.
 
 1. Push this repo to Git.
-2. In Hostinger, create a Node.js app from the repository.
+2. In Hostinger, import it as a Next.js app or Node.js app.
 3. Make sure the startup command is `npm start`.
 4. Set environment variables:
    `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
@@ -44,17 +35,16 @@ This repo is ready to deploy as one Node.js application.
 What happens on deploy:
 
 - Hostinger runs `npm install`
-- the root `postinstall` script builds the React client
-- `npm start` launches Express from [server.js](/d:/Projects/pke_erp/pke_erp/server.js)
-- Express serves the built client from `client/build`
+- Hostinger runs `npm run build`
+- `npm start` launches the Next.js server
+- Next serves both the ERP UI and API from the same app
 
 ## Local Development
 
 1. Run `npm install`
-2. Run `npm run server`
-3. In another terminal, run `npm run client:start`
+2. Run `npm run dev`
 
-The frontend uses the proxy in [client/package.json](/d:/Projects/pke_erp/pke_erp/client/package.json), so local API calls still go to `http://localhost:8000`.
+The ERP frontend still calls `/auth/*` and `/data/*`. [next.config.mjs](/d:/Projects/pke_erp/pke_erp/next.config.mjs) rewrites those requests to the Next API routes under `pages/api`.
 
 # DBMS
 ## Entry
