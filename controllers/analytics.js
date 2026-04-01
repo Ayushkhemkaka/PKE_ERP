@@ -1,17 +1,16 @@
 import { query } from "../configs/dbConn.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 
-const getAnalytics = async (req, res) => {
-    const mode = String(req.query.mode || 'all').toLowerCase();
-    const accountId = req.query.accountId;
-    const item = req.query.item;
-    const days = Number(req.query.days || 30);
-    const validDays = Number.isFinite(days) && days > 0 ? days : 30;
-    const year = Number(req.query.year || new Date().getFullYear());
-    const validYear = Number.isFinite(year) && year >= 2020 && year <= 2100 ? year : new Date().getFullYear();
+const CURRENT_YEAR = new Date().getFullYear();
 
-    const conditions = ['date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)'];
-    const values = [validDays];
+const buildConditions = ({ mode, accountId, item, fromDays }) => {
+    const conditions = [];
+    const values = [];
+
+    if (fromDays) {
+        conditions.push('date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)');
+        values.push(fromDays);
+    }
 
     if (item) {
         conditions.push('item = ?');
@@ -24,65 +23,81 @@ const getAnalytics = async (req, res) => {
     }
 
     if (mode === 'normal') {
-        conditions.push(`LOWER(orderType) = 'standard'`);
+        conditions.push("LOWER(orderType) = 'standard'");
     } else if (mode === 'b2b') {
-        conditions.push(`LOWER(orderType) = 'b2b'`);
+        conditions.push("LOWER(orderType) = 'b2b'");
     }
 
-    const whereClause = `WHERE ${conditions.join(' AND ')}`;
-    const buildYearWhere = () => {
-        const yearConditions = ['YEAR(date) = ?'];
-        const yearValues = [validYear];
-
-        if (item) {
-            yearConditions.push('item = ?');
-            yearValues.push(item);
-        }
-
-        if (accountId) {
-            yearConditions.push('customerAccountId = ?');
-            yearValues.push(accountId);
-        }
-
-        if (mode === 'normal') {
-            yearConditions.push(`LOWER(orderType) = 'standard'`);
-        } else if (mode === 'b2b') {
-            yearConditions.push(`LOWER(orderType) = 'b2b'`);
-        }
-
-        return {
-            sql: `WHERE ${yearConditions.join(' AND ')}`,
-            values: yearValues
-        };
+    return {
+        clause: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '',
+        values
     };
+};
 
-    const buildMonthWhere = (offsetMonths = 0) => {
-        const monthConditions = [`DATE_FORMAT(date, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL ? MONTH), '%Y-%m')`];
-        const monthValues = [offsetMonths];
+const buildPeriodConditions = ({ mode, accountId, item, year, month }) => {
+    const conditions = ['YEAR(date) = ?'];
+    const values = [year];
 
-        if (item) {
-            monthConditions.push('item = ?');
-            monthValues.push(item);
-        }
+    if (month) {
+        conditions.push('MONTH(date) = ?');
+        values.push(month);
+    }
 
-        if (accountId) {
-            monthConditions.push('customerAccountId = ?');
-            monthValues.push(accountId);
-        }
+    if (item) {
+        conditions.push('item = ?');
+        values.push(item);
+    }
 
-        if (mode === 'normal') {
-            monthConditions.push(`LOWER(orderType) = 'standard'`);
-        } else if (mode === 'b2b') {
-            monthConditions.push(`LOWER(orderType) = 'b2b'`);
-        }
+    if (accountId) {
+        conditions.push('customerAccountId = ?');
+        values.push(accountId);
+    }
 
-        return {
-            sql: `WHERE ${monthConditions.join(' AND ')}`,
-            values: monthValues
-        };
+    if (mode === 'normal') {
+        conditions.push("LOWER(orderType) = 'standard'");
+    } else if (mode === 'b2b') {
+        conditions.push("LOWER(orderType) = 'b2b'");
+    }
+
+    return {
+        clause: `WHERE ${conditions.join(' AND ')}`,
+        values
     };
+};
+
+const getAnalytics = async (req, res) => {
+    const mode = String(req.query.mode || 'all').toLowerCase();
+    const accountId = req.query.accountId || '';
+    const item = req.query.item || '';
+    const days = Number(req.query.days || 30);
+    const year = Number(req.query.year || CURRENT_YEAR);
+    const month = Number(req.query.month || (new Date().getMonth() + 1));
+    const validDays = Number.isFinite(days) && days > 0 ? days : 30;
+    const validYear = Number.isFinite(year) && year >= 2020 && year <= 2100 ? year : CURRENT_YEAR;
+    const validMonth = Number.isFinite(month) && month >= 1 && month <= 12 ? month : (new Date().getMonth() + 1);
+
+    const rollingFilter = buildConditions({ mode, accountId, item, fromDays: validDays });
+    const yearlyFilter = buildPeriodConditions({ mode, accountId, item, year: validYear });
+    const monthlyFilter = buildPeriodConditions({ mode, accountId, item, year: validYear, month: validMonth });
 
     try {
+        const [overallSummary] = await query(
+            `SELECT
+                COUNT(*) AS orderCount,
+                COALESCE(SUM(totalAmount), 0) AS totalSales,
+                COALESCE(SUM(cashCredit), 0) AS totalCashCredit,
+                COALESCE(SUM(bankCredit), 0) AS totalBankCredit,
+                COALESCE(SUM(dueAmount), 0) AS totalDue,
+                COALESCE(SUM(due_paid), 0) AS totalDuePaid,
+                COALESCE(AVG(totalAmount), 0) AS averageOrderValue,
+                COALESCE(MAX(totalAmount), 0) AS biggestOrderValue,
+                COALESCE(MIN(NULLIF(totalAmount, 0)), 0) AS smallestNonZeroOrder,
+                COALESCE(SUM(CASE WHEN COALESCE(quantity, 0) = 0 OR COALESCE(amount, 0) = 0 THEN 1 ELSE 0 END), 0) AS pendingPricingCount
+             FROM order_entry
+             ${rollingFilter.clause}`,
+            rollingFilter.values
+        );
+
         const [normalSummary] = await query(
             `SELECT
                 COUNT(*) AS order_count,
@@ -90,12 +105,10 @@ const getAnalytics = async (req, res) => {
                 COALESCE(SUM(cashCredit), 0) AS total_cash_credit,
                 COALESCE(SUM(bankCredit), 0) AS total_bank_credit,
                 COALESCE(SUM(dueAmount), 0) AS total_due,
-                COALESCE(SUM(due_paid), 0) AS total_due_paid,
-                COALESCE(SUM(CASE WHEN COALESCE(quantity, 0) = 0 OR COALESCE(amount, 0) = 0 THEN 1 ELSE 0 END), 0) AS pending_pricing_count
+                COALESCE(SUM(due_paid), 0) AS total_due_paid
              FROM order_entry
-             ${whereClause}
-             ${mode === 'b2b' ? 'AND 1 = 0' : 'AND LOWER(orderType) = \'standard\''}`,
-            values
+             ${rollingFilter.clause ? `${rollingFilter.clause} AND` : 'WHERE'} LOWER(orderType) = 'standard'`,
+            rollingFilter.values
         );
 
         const [b2bSummary] = await query(
@@ -105,215 +118,89 @@ const getAnalytics = async (req, res) => {
                 COALESCE(SUM(cashCredit), 0) AS total_cash_credit,
                 COALESCE(SUM(bankCredit), 0) AS total_bank_credit,
                 COALESCE(SUM(dueAmount), 0) AS total_due,
-                COALESCE(SUM(due_paid), 0) AS total_due_paid,
-                COALESCE(SUM(CASE WHEN COALESCE(quantity, 0) = 0 OR COALESCE(amount, 0) = 0 THEN 1 ELSE 0 END), 0) AS pending_pricing_count
+                COALESCE(SUM(due_paid), 0) AS total_due_paid
              FROM order_entry
-             ${whereClause}
-             ${mode === 'normal' ? 'AND 1 = 0' : 'AND LOWER(orderType) = \'b2b\''}`,
-            values
+             ${rollingFilter.clause ? `${rollingFilter.clause} AND` : 'WHERE'} LOWER(orderType) = 'b2b'`,
+            rollingFilter.values
         );
 
-        const monthlySales = await query(
-            `SELECT DATE_FORMAT(date, '%Y-%m') AS month_label,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${whereClause}
-             GROUP BY DATE_FORMAT(date, '%Y-%m')
-             ORDER BY month_label DESC
-             LIMIT 6`,
-            values
-        );
-
-        const topItems = await query(
-            `SELECT item, COUNT(*) AS order_count, COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${whereClause}
-             GROUP BY item
-             ORDER BY total_sales DESC, order_count DESC
-             LIMIT 8`,
-            values
-        );
-
-        const accountBreakdown = await query(
-            `SELECT customerAccountName AS account_name,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales,
-                    COALESCE(SUM(dueAmount), 0) AS total_due
-             FROM order_entry
-             ${whereClause}
-             AND LOWER(orderType) = 'b2b'
-             GROUP BY customerAccountName
-             HAVING customerAccountName IS NOT NULL AND customerAccountName <> ''
-             ORDER BY total_sales DESC, order_count DESC
-             LIMIT 8`,
-            values
-        );
-
-        const paymentBreakdown = await query(
-            `SELECT paymentStatus AS payment_status,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${whereClause}
-             GROUP BY paymentStatus
-             ORDER BY total_sales DESC, order_count DESC`,
-            values
-        );
-
-        const sourceBreakdown = await query(
-            `SELECT source,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${whereClause}
-             GROUP BY source
-             ORDER BY total_sales DESC, order_count DESC`,
-            values
-        );
-
-        const salesTimeline = await query(
-            `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS sales_date,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${whereClause}
-             GROUP BY DATE_FORMAT(date, '%Y-%m-%d')
-             ORDER BY sales_date ASC`,
-            values
-        );
-
-        const weekdayPerformance = await query(
-            `SELECT DAYOFWEEK(date) AS weekday_number,
-                    ELT(DAYOFWEEK(date), 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat') AS weekday_label,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${whereClause}
-             GROUP BY DAYOFWEEK(date), ELT(DAYOFWEEK(date), 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')
-             ORDER BY weekday_number ASC`,
-            values
-        );
-
-        const partyPerformance = await query(
+        const yearlyMonthlyBreakdown = await query(
             `SELECT
-                CASE
-                    WHEN LOWER(orderType) = 'b2b' THEN COALESCE(customerAccountName, name)
-                    ELSE name
-                END AS party_name,
+                MONTH(date) AS month_number,
+                DATE_FORMAT(date, '%b') AS month_label,
                 COUNT(*) AS order_count,
                 COALESCE(SUM(totalAmount), 0) AS total_sales,
-                COALESCE(SUM(dueAmount), 0) AS total_due
+                COALESCE(SUM(CASE WHEN LOWER(orderType) = 'standard' THEN totalAmount ELSE 0 END), 0) AS cash_sales,
+                COALESCE(SUM(CASE WHEN LOWER(orderType) = 'b2b' THEN totalAmount ELSE 0 END), 0) AS b2b_sales,
+                COALESCE(SUM(cashCredit), 0) AS cash_credit,
+                COALESCE(SUM(bankCredit), 0) AS bank_credit,
+                COALESCE(SUM(dueAmount), 0) AS due_amount,
+                COALESCE(SUM(due_paid), 0) AS due_paid
              FROM order_entry
-             ${whereClause}
-             GROUP BY party_name
-             HAVING party_name IS NOT NULL AND party_name <> ''
-             ORDER BY total_sales DESC, order_count DESC
-             LIMIT 10`,
-            values
-        );
-
-        const printStatusSummary = await query(
-            `SELECT
-                CASE WHEN COALESCE(is_printed, 0) = 1 THEN 'Printed' ELSE 'Pending Print' END AS print_status,
-                COUNT(*) AS order_count
-             FROM order_entry
-             ${whereClause}
-             GROUP BY CASE WHEN COALESCE(is_printed, 0) = 1 THEN 'Printed' ELSE 'Pending Print' END
-             ORDER BY order_count DESC`,
-            values
-        );
-
-        const orderValueBands = await query(
-            `SELECT
-                CASE
-                    WHEN COALESCE(totalAmount, 0) = 0 THEN 'Zero'
-                    WHEN totalAmount <= 10000 THEN '0-10k'
-                    WHEN totalAmount <= 25000 THEN '10k-25k'
-                    WHEN totalAmount <= 50000 THEN '25k-50k'
-                    ELSE '50k+'
-                END AS value_band,
-                COUNT(*) AS order_count
-             FROM order_entry
-             ${whereClause}
-             GROUP BY value_band
-             ORDER BY FIELD(value_band, 'Zero', '0-10k', '10k-25k', '25k-50k', '50k+')`,
-            values
-        );
-
-        const yearlyFilter = buildYearWhere();
-        const yearlyMonthlySales = await query(
-            `SELECT MONTH(date) AS month_number,
-                    DATE_FORMAT(date, '%b') AS month_label,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${yearlyFilter.sql}
+             ${yearlyFilter.clause}
              GROUP BY MONTH(date), DATE_FORMAT(date, '%b')
              ORDER BY month_number`,
             yearlyFilter.values
         );
 
-        const currentMonthFilter = buildMonthWhere(0);
-        const [currentMonthSummary] = await query(
-            `SELECT COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales,
-                    COALESCE(AVG(totalAmount), 0) AS average_order_value
+        const monthlyDailyBreakdown = await query(
+            `SELECT
+                DAY(date) AS day_number,
+                DATE_FORMAT(date, '%d %b') AS day_label,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(totalAmount), 0) AS total_sales,
+                COALESCE(SUM(CASE WHEN LOWER(orderType) = 'standard' THEN totalAmount ELSE 0 END), 0) AS cash_sales,
+                COALESCE(SUM(CASE WHEN LOWER(orderType) = 'b2b' THEN totalAmount ELSE 0 END), 0) AS b2b_sales,
+                COALESCE(SUM(cashCredit), 0) AS cash_credit,
+                COALESCE(SUM(bankCredit), 0) AS bank_credit,
+                COALESCE(SUM(dueAmount), 0) AS due_amount,
+                COALESCE(SUM(due_paid), 0) AS due_paid
              FROM order_entry
-             ${currentMonthFilter.sql}`,
-            currentMonthFilter.values
+             ${monthlyFilter.clause}
+             GROUP BY DAY(date), DATE_FORMAT(date, '%d %b')
+             ORDER BY day_number`,
+            monthlyFilter.values
         );
 
-        const previousMonthFilter = buildMonthWhere(1);
-        const [previousMonthSummary] = await query(
-            `SELECT COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales,
-                    COALESCE(AVG(totalAmount), 0) AS average_order_value
+        const dailyRecentTrend = await query(
+            `SELECT
+                DATE_FORMAT(date, '%Y-%m-%d') AS sales_date,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(totalAmount), 0) AS total_sales,
+                COALESCE(SUM(cashCredit), 0) AS cash_credit,
+                COALESCE(SUM(bankCredit), 0) AS bank_credit,
+                COALESCE(SUM(dueAmount), 0) AS due_amount,
+                COALESCE(SUM(due_paid), 0) AS due_paid
              FROM order_entry
-             ${previousMonthFilter.sql}`,
-            previousMonthFilter.values
+             ${rollingFilter.clause}
+             GROUP BY DATE_FORMAT(date, '%Y-%m-%d')
+             ORDER BY sales_date ASC`,
+            rollingFilter.values
         );
 
-        const [overallOrderMetrics] = await query(
-            `SELECT COALESCE(AVG(totalAmount), 0) AS average_order_value,
-                    COALESCE(MAX(totalAmount), 0) AS biggest_order_value,
-                    COALESCE(MIN(NULLIF(totalAmount, 0)), 0) AS smallest_non_zero_order
+        const topItems = await query(
+            `SELECT item, COUNT(*) AS order_count, COALESCE(SUM(totalAmount), 0) AS total_sales
              FROM order_entry
-             ${whereClause}`,
-            values
-        );
-
-        const dueByParty = await query(
-            `SELECT party_name,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(due_amount), 0) AS total_due
-             FROM (
-                SELECT
-                    CASE
-                        WHEN LOWER(orderType) = 'b2b' THEN COALESCE(customerAccountName, name)
-                        ELSE name
-                    END AS party_name,
-                    dueAmount AS due_amount
-                FROM order_entry
-                ${whereClause}
-             ) AS due_bucket
-             WHERE COALESCE(due_amount, 0) > 0
-             GROUP BY party_name
-             ORDER BY total_due DESC, order_count DESC
-             LIMIT 8`,
-            values
-        );
-
-        const pricingGaps = await query(
-            `SELECT item,
-                    COUNT(*) AS order_count,
-                    COALESCE(SUM(totalAmount), 0) AS total_sales
-             FROM order_entry
-             ${whereClause}
-             AND (COALESCE(quantity, 0) = 0 OR COALESCE(amount, 0) = 0)
+             ${rollingFilter.clause}
              GROUP BY item
-             ORDER BY order_count DESC, total_sales DESC
-             LIMIT 8`,
-            values
+             ORDER BY total_sales DESC, order_count DESC
+             LIMIT 10`,
+            rollingFilter.values
+        );
+
+        const itemPerformance = await query(
+            `SELECT
+                item,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(totalAmount), 0) AS total_sales,
+                COALESCE(SUM(quantity), 0) AS total_quantity,
+                COALESCE(AVG(rate), 0) AS avg_rate
+             FROM order_entry
+             ${yearlyFilter.clause}
+             GROUP BY item
+             ORDER BY total_sales DESC, order_count DESC
+             LIMIT 12`,
+            yearlyFilter.values
         );
 
         const rateChangeHistory = await query(
@@ -349,40 +236,146 @@ const getAnalytics = async (req, res) => {
             item ? [item] : []
         );
 
-        const overallTotalSales = Number(normalSummary.total_sales || 0) + Number(b2bSummary.total_sales || 0);
-        const overallOrderCount = Number(normalSummary.order_count || 0) + Number(b2bSummary.order_count || 0);
+        const paymentBreakdown = await query(
+            `SELECT paymentStatus AS payment_status,
+                    COUNT(*) AS order_count,
+                    COALESCE(SUM(totalAmount), 0) AS total_sales
+             FROM order_entry
+             ${rollingFilter.clause}
+             GROUP BY paymentStatus
+             ORDER BY total_sales DESC, order_count DESC`,
+            rollingFilter.values
+        );
+
+        const sourceBreakdown = await query(
+            `SELECT source,
+                    COUNT(*) AS order_count,
+                    COALESCE(SUM(totalAmount), 0) AS total_sales
+             FROM order_entry
+             ${rollingFilter.clause}
+             GROUP BY source
+             ORDER BY total_sales DESC, order_count DESC`,
+            rollingFilter.values
+        );
+
+        const partyPerformance = await query(
+            `SELECT
+                CASE
+                    WHEN LOWER(orderType) = 'b2b' THEN COALESCE(customerAccountName, name)
+                    ELSE name
+                END AS party_name,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(totalAmount), 0) AS total_sales,
+                COALESCE(SUM(dueAmount), 0) AS total_due
+             FROM order_entry
+             ${rollingFilter.clause}
+             GROUP BY party_name
+             HAVING party_name IS NOT NULL AND party_name <> ''
+             ORDER BY total_sales DESC, order_count DESC
+             LIMIT 10`,
+            rollingFilter.values
+        );
+
+        const dueByParty = await query(
+            `SELECT
+                CASE
+                    WHEN LOWER(orderType) = 'b2b' THEN COALESCE(customerAccountName, name)
+                    ELSE name
+                END AS party_name,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(dueAmount), 0) AS total_due
+             FROM order_entry
+             ${rollingFilter.clause ? `${rollingFilter.clause} AND` : 'WHERE'} COALESCE(dueAmount, 0) > 0
+             GROUP BY party_name
+             HAVING party_name IS NOT NULL AND party_name <> ''
+             ORDER BY total_due DESC, order_count DESC
+             LIMIT 8`,
+            rollingFilter.values
+        );
+
+        const pricingGaps = await query(
+            `SELECT item,
+                    COUNT(*) AS order_count,
+                    COALESCE(SUM(totalAmount), 0) AS total_sales
+             FROM order_entry
+             ${rollingFilter.clause ? `${rollingFilter.clause} AND` : 'WHERE'} (COALESCE(quantity, 0) = 0 OR COALESCE(amount, 0) = 0)
+             GROUP BY item
+             ORDER BY order_count DESC, total_sales DESC
+             LIMIT 8`,
+            rollingFilter.values
+        );
+
+        const printStatusSummary = await query(
+            `SELECT
+                CASE WHEN COALESCE(is_printed, 0) = 1 THEN 'Printed' ELSE 'Pending Print' END AS print_status,
+                COUNT(*) AS order_count
+             FROM order_entry
+             ${rollingFilter.clause}
+             GROUP BY CASE WHEN COALESCE(is_printed, 0) = 1 THEN 'Printed' ELSE 'Pending Print' END
+             ORDER BY order_count DESC`,
+            rollingFilter.values
+        );
+
+        const orderValueBands = await query(
+            `SELECT
+                CASE
+                    WHEN COALESCE(totalAmount, 0) = 0 THEN 'Zero'
+                    WHEN totalAmount <= 10000 THEN '0-10k'
+                    WHEN totalAmount <= 25000 THEN '10k-25k'
+                    WHEN totalAmount <= 50000 THEN '25k-50k'
+                    ELSE '50k+'
+                END AS value_band,
+                COUNT(*) AS order_count
+             FROM order_entry
+             ${rollingFilter.clause}
+             GROUP BY value_band
+             ORDER BY FIELD(value_band, 'Zero', '0-10k', '10k-25k', '25k-50k', '50k+')`,
+            rollingFilter.values
+        );
+
+        const [currentMonthSummary] = await query(
+            `SELECT COUNT(*) AS order_count,
+                    COALESCE(SUM(totalAmount), 0) AS total_sales,
+                    COALESCE(AVG(totalAmount), 0) AS average_order_value
+             FROM order_entry
+             ${monthlyFilter.clause}`,
+            monthlyFilter.values
+        );
+
+        const previousMonth = validMonth === 1 ? 12 : validMonth - 1;
+        const previousMonthYear = validMonth === 1 ? validYear - 1 : validYear;
+        const previousMonthlyFilter = buildPeriodConditions({ mode, accountId, item, year: previousMonthYear, month: previousMonth });
+        const [previousMonthSummary] = await query(
+            `SELECT COUNT(*) AS order_count,
+                    COALESCE(SUM(totalAmount), 0) AS total_sales,
+                    COALESCE(AVG(totalAmount), 0) AS average_order_value
+             FROM order_entry
+             ${previousMonthlyFilter.clause}`,
+            previousMonthlyFilter.values
+        );
+
         const currentMonthSales = Number(currentMonthSummary.total_sales || 0);
         const previousMonthSales = Number(previousMonthSummary.total_sales || 0);
         const monthGrowthPercent = previousMonthSales > 0
             ? ((currentMonthSales - previousMonthSales) / previousMonthSales) * 100
             : (currentMonthSales > 0 ? 100 : 0);
-        const highestMonth = yearlyMonthlySales.reduce((best, month) =>
-            Number(month.total_sales || 0) > Number(best?.total_sales || 0) ? month : best,
-            yearlyMonthlySales[0] || null
+        const highestMonth = yearlyMonthlyBreakdown.reduce((best, row) =>
+            Number(row.total_sales || 0) > Number(best?.total_sales || 0) ? row : best,
+            yearlyMonthlyBreakdown[0] || null
         );
 
         sendSuccess(res, "Analytics fetched successfully.", {
             filters: {
                 mode,
-                accountId: accountId || '',
-                item: item || '',
+                accountId,
+                item,
                 days: validDays,
-                year: validYear
+                year: validYear,
+                month: validMonth
             },
+            overallSummary,
             normalSummary,
             b2bSummary,
-            overallSummary: {
-                orderCount: overallOrderCount,
-                totalSales: overallTotalSales,
-                totalCashCredit: Number(normalSummary.total_cash_credit || 0) + Number(b2bSummary.total_cash_credit || 0),
-                totalBankCredit: Number(normalSummary.total_bank_credit || 0) + Number(b2bSummary.total_bank_credit || 0),
-                totalDue: Number(normalSummary.total_due || 0) + Number(b2bSummary.total_due || 0),
-                totalDuePaid: Number(normalSummary.total_due_paid || 0) + Number(b2bSummary.total_due_paid || 0),
-                pendingPricingCount: Number(normalSummary.pending_pricing_count || 0) + Number(b2bSummary.pending_pricing_count || 0),
-                averageOrderValue: Number(overallOrderMetrics.average_order_value || 0),
-                biggestOrderValue: Number(overallOrderMetrics.biggest_order_value || 0),
-                smallestNonZeroOrder: Number(overallOrderMetrics.smallest_non_zero_order || 0)
-            },
             currentMonthSummary: {
                 orderCount: Number(currentMonthSummary.order_count || 0),
                 totalSales: currentMonthSales,
@@ -396,34 +389,32 @@ const getAnalytics = async (req, res) => {
             businessSignals: {
                 monthGrowthPercent,
                 highestMonth,
-                yearToDateSales: yearlyMonthlySales.reduce((sum, month) => sum + Number(month.total_sales || 0), 0),
-                yearToDateOrders: yearlyMonthlySales.reduce((sum, month) => sum + Number(month.order_count || 0), 0),
-                averageDailySales: salesTimeline.length ? salesTimeline.reduce((sum, day) => sum + Number(day.total_sales || 0), 0) / salesTimeline.length : 0,
-                dueRecoveryRate: (Number(normalSummary.total_due_paid || 0) + Number(b2bSummary.total_due_paid || 0)) > 0
-                    ? ((Number(normalSummary.total_due_paid || 0) + Number(b2bSummary.total_due_paid || 0))
-                        / Math.max((Number(normalSummary.total_due || 0) + Number(b2bSummary.total_due || 0)) + (Number(normalSummary.total_due_paid || 0) + Number(b2bSummary.total_due_paid || 0)), 1)) * 100
+                yearToDateSales: yearlyMonthlyBreakdown.reduce((sum, row) => sum + Number(row.total_sales || 0), 0),
+                yearToDateOrders: yearlyMonthlyBreakdown.reduce((sum, row) => sum + Number(row.order_count || 0), 0),
+                averageDailySales: dailyRecentTrend.length ? dailyRecentTrend.reduce((sum, row) => sum + Number(row.total_sales || 0), 0) / dailyRecentTrend.length : 0,
+                dueRecoveryRate: Number(overallSummary.totalDuePaid || 0) > 0
+                    ? (Number(overallSummary.totalDuePaid || 0) / Math.max(Number(overallSummary.totalDue || 0) + Number(overallSummary.totalDuePaid || 0), 1)) * 100
                     : 0
             },
-            monthlySales: monthlySales.reverse(),
-            salesTimeline,
-            yearlyMonthlySales,
+            yearlyMonthlyBreakdown,
+            monthlyDailyBreakdown,
+            dailyRecentTrend,
             topItems,
-            accountBreakdown,
+            itemPerformance,
+            rateChangeHistory,
+            latestRateSnapshot,
             paymentBreakdown,
             sourceBreakdown,
-            weekdayPerformance,
             partyPerformance,
-            printStatusSummary,
-            orderValueBands,
             dueByParty,
             pricingGaps,
-            rateChangeHistory,
-            latestRateSnapshot
+            printStatusSummary,
+            orderValueBands
         });
     } catch (error) {
-        console.error('Get analytics failed', error);
+        console.error('Analytics failed', error);
         sendError(res, "Unable to fetch analytics.", 500);
     }
-}
+};
 
 export { getAnalytics };

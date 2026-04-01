@@ -13,6 +13,7 @@ const SearchOptions = (props) => {
     ));
     const [item, setItem] = useState("")
     const [itemOptions, setItemOptions] = useState([])
+    const [accountOptions, setAccountOptions] = useState([])
     const [searchParams, setSearchParams] = useState({})
     const [exportDisabled, setExportDisabled] = useState(true)
     const isB2B = props.mode === 'b2b';
@@ -53,12 +54,16 @@ const SearchOptions = (props) => {
     useEffect(() => {
         const loadItems = async () => {
             try {
-                const response = await axios.get('/data/items/catalog');
-                const nextItems = (response.data.data || [])
+                const [itemsResponse, accountsResponse] = await Promise.all([
+                    axios.get('/data/items/catalog'),
+                    axios.get('/data/accounts')
+                ]);
+                const nextItems = (itemsResponse.data.data || [])
                     .filter((itemRow) => itemRow.isActive)
                     .map((itemRow) => itemRow.itemName)
                     .sort((left, right) => left.localeCompare(right));
                 setItemOptions(nextItems);
+                setAccountOptions((accountsResponse.data.data || []).map((account) => account.account_name).sort((left, right) => left.localeCompare(right)));
             } catch (error) {
                 notify('error', error.response?.data?.message || 'Unable to load item list.');
             }
@@ -229,7 +234,10 @@ const SearchOptions = (props) => {
                         {isB2B ? <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='customerAccountName'>Customer Account:</label>
-                                <input type="text" className="form-control app-input" id="customerAccountName" name="customerAccountName" placeholder="Account name" />
+                                <select id="customerAccountName" className="form-select app-input" name="customerAccountName" defaultValue="">
+                                    <option value="">All B2B accounts</option>
+                                    {accountOptions.map((accountName) => <option key={accountName} value={accountName}>{accountName}</option>)}
+                                </select>
                             </div>
                         </div> : null}
                     </div>

@@ -188,7 +188,7 @@ const OwnerReceiptReprint = () => {
                                 }}
                                 onClick={(event) => event.stopPropagation()}
                             />
-                            <span>{`Invoice No. ${receipt.invoiceNumber}`}</span>
+                            <span>{receipt.receiptReference}</span>
                             <strong>{receipt.name}</strong>
                             <small>{receipt.orderType} | {receipt.printedBy || 'Not printed yet'}</small>
                         </button>)}
@@ -209,11 +209,12 @@ const OwnerReceiptReprint = () => {
                         </div>
                         <div className="invoice-sheet">
                             <iframe
-                                title={`Receipt preview ${selectedReceipt.invoiceNumber}`}
+                                title={`Receipt preview ${selectedReceipt.id}`}
                                 className="receipt-preview-frame"
                                 srcDoc={buildInvoiceHtml(selectedReceipt, selectedReceipt.orderType === 'B2B' ? 'B2B Order Invoice' : 'Order Entry Invoice')}
                             />
                             <div className="invoice-preview-grid mt-3">
+                                <div><span>Reference</span><strong>{selectedReceipt.receiptReference}</strong></div>
                                 <div><span>Printed By</span><strong>{selectedReceipt.printedBy || 'Not printed yet'}</strong></div>
                             </div>
                         </div>

@@ -8,6 +8,7 @@ const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'];
 const AppProvider = ({ children }) => {
     const [notification, setNotification] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
+    const [isAuthReady, setIsAuthReady] = useState(false);
     const timeoutRef = useRef(null);
 
     const clearSessionTimer = () => {
@@ -61,6 +62,7 @@ const AppProvider = ({ children }) => {
 
                 if (hasExpired) {
                     clearStoredSession();
+                    setIsAuthReady(true);
                     return;
                 }
 
@@ -69,6 +71,7 @@ const AppProvider = ({ children }) => {
                 clearStoredSession();
             }
         }
+        setIsAuthReady(true);
     }, []);
 
     useEffect(() => {
@@ -118,9 +121,10 @@ const AppProvider = ({ children }) => {
         notify,
         clearNotification,
         currentUser,
+        isAuthReady,
         login,
         logout
-    }), [notification, currentUser]);
+    }), [notification, currentUser, isAuthReady]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

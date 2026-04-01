@@ -88,10 +88,9 @@ const NavBar = () => {
     <nav className="navbar navbar-expand-lg app-navbar">
       <div className="container-fluid px-4">
         <Link className="navbar-brand app-brand" to="/" style={{ textDecoration: 'none' }}>
-          <span className="app-brand-mark">PKE</span>
+          <img src="/parentLogo.png" alt="PK Enterprises" className="app-brand-logo" />
           <div>
-            <h4 className="mb-0">P. K. ENTERPRISES</h4>
-            <small>Order management workspace</small>
+            <h2 className="mb-0">P. K. ENTERPRISES</h2>
           </div>
         </Link>
         <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -100,9 +99,6 @@ const NavBar = () => {
         <div className="collapse navbar-collapse justify-content-end" id="navbarNav">
           <ul className="navbar-nav app-nav-links">
             {currentUser ? <>
-              <li className="nav-item">
-                <Link className="nav-link" to="/" style={{ textDecoration: 'none' }}>Dashboard</Link>
-              </li>
               <li className={`nav-item nav-group ${openMenu === 'general' ? 'nav-group-open' : ''}`} onMouseEnter={() => openMenuHandler('general')} onMouseLeave={closeMenuHandler}>
                 <button type="button" className="nav-link nav-group-trigger" onFocus={() => openMenuHandler('general')} aria-expanded={openMenu === 'general'}>
                   {getCashLabel()}

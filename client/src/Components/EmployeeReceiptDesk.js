@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 import { buildInvoiceHtml, buildPrintableOrder } from '../utils/receiptUtils.js';
 
-const EmployeeReceiptDesk = () => {
+const EmployeeReceiptDesk = ({ publicView = false }) => {
     const { notify } = useAppContext();
     const [receipts, setReceipts] = useState([]);
     const [selectedReceipt, setSelectedReceipt] = useState(null);
@@ -38,7 +38,7 @@ const EmployeeReceiptDesk = () => {
         try {
             await axios.post('/data/receipts/print', {
                 id: receipt.id,
-                printedBy: 'Customer'
+                printedBy: publicView ? 'Receipt Desk' : 'Customer'
             });
             printWindow.document.write(buildInvoiceHtml(receipt, receipt.orderType === 'B2B' ? 'B2B Order Invoice' : 'Order Entry Invoice'));
             printWindow.document.close();
@@ -56,17 +56,17 @@ const EmployeeReceiptDesk = () => {
     }
 
     return (
-        <section className='form-container'>
-            <div className="page-heading">
+        <section className={publicView ? 'receipt-public-shell' : 'form-container'}>
+            {publicView ? null : <div className="page-heading">
                 <div>
                     <span className="page-eyebrow">Employee Desk</span>
                     <h2 className="mb-2">Receipt Desk</h2>
                     <p className="page-subtitle mb-0">Only receipts that still need customer printing appear here, and the desk refreshes automatically every 2 minutes for new orders.</p>
                 </div>
                 <div className="page-badge">Pending only</div>
-            </div>
-            <div className="receipt-desk-layout">
-                <div className="section-card">
+            </div>}
+            <div className={`receipt-desk-layout${publicView ? ' receipt-desk-layout-public' : ''}`}>
+                {publicView ? null : <div className="section-card">
                     <div className="section-card-header">
                         <div>
                             <h5 className="mb-1">Recent Receipts</h5>
@@ -75,32 +75,32 @@ const EmployeeReceiptDesk = () => {
                     </div>
                     <div className="receipt-list">
                         {receipts.map((receipt) => <button type="button" className={`receipt-list-item${selectedReceipt?.id === receipt.id ? ' receipt-list-item-active' : ''}`} key={receipt.id} onClick={() => setSelectedReceipt(receipt)}>
-                            <span>{receipt.invoiceNumber}</span>
+                            <span>{receipt.receiptReference}</span>
                             <strong>{receipt.name}</strong>
                             <small>{receipt.orderType} | {receipt.isPrinted ? 'Printed' : 'Pending Print'}</small>
                         </button>)}
                     </div>
-                </div>
-                <div className="section-card invoice-preview-card">
+                </div>}
+                <div className={publicView ? 'receipt-public-preview' : 'section-card invoice-preview-card'}>
                     {selectedReceipt ? <>
-                        <div className="section-card-header">
+                        <div className={`action-row${publicView ? ' action-row-public action-row-public-top' : ' mb-3'}`}>
+                            <button type="button" className="btn btn-dark btn-lg" onClick={() => printReceipt(selectedReceipt)}>Print Receipt</button>
+                        </div>
+                        {publicView ? null : <div className="section-card-header">
                             <div>
                                 <h5 className="mb-1">Receipt Preview</h5>
                                 <p className="section-subtitle mb-0">This preview matches the actual print area. Print from this page to update the print status for the selected receipt.</p>
                             </div>
                             <div className="page-badge">{selectedReceipt.isPrinted ? 'Printed' : 'Pending'}</div>
-                        </div>
+                        </div>}
                         <div className="invoice-sheet">
                             <iframe
-                                title={`Receipt preview ${selectedReceipt.invoiceNumber}`}
+                                title={`Receipt preview ${selectedReceipt.id}`}
                                 className="receipt-preview-frame"
                                 srcDoc={buildInvoiceHtml(selectedReceipt, selectedReceipt.orderType === 'B2B' ? 'B2B Order Invoice' : 'Order Entry Invoice')}
                             />
                         </div>
-                        <div className='action-row mt-4'>
-                            <button type="button" className="btn btn-dark btn-lg" onClick={() => printReceipt(selectedReceipt)}>Print Receipt</button>
-                        </div>
-                    </> : <p className="mb-0">No receipts available yet.</p>}
+                    </> : publicView ? <div className="receipt-public-empty">No receipt available yet</div> : <p className="mb-0">No receipts available yet.</p>}
                 </div>
             </div>
         </section>

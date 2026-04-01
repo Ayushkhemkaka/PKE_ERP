@@ -19,6 +19,7 @@ const DueAccountsPage = ({ fixedMode = '' }) => {
     const [accounts, setAccounts] = useState([]);
     const [orders, setOrders] = useState([]);
     const [selectedAccountId, setSelectedAccountId] = useState('');
+    const [accountSearch, setAccountSearch] = useState('');
     const [invoiceId, setInvoiceId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdatingId, setIsUpdatingId] = useState('');
@@ -45,12 +46,27 @@ const DueAccountsPage = ({ fixedMode = '' }) => {
     useEffect(() => {
         setMode(queryMode);
         setSelectedAccountId('');
+        setAccountSearch('');
         setInvoiceId('');
     }, [queryMode]);
 
     useEffect(() => {
         loadDueAccounts(mode, selectedAccountId, invoiceId);
     }, [mode, selectedAccountId, invoiceId, loadDueAccounts]);
+
+    useEffect(() => {
+        if (!accountSearch) {
+            setSelectedAccountId('');
+            return;
+        }
+
+        const match = accounts.find((account) => account.account_name.toLowerCase() === accountSearch.toLowerCase());
+        setSelectedAccountId(match ? String(match.id) : '');
+    }, [accountSearch, accounts]);
+
+    const filteredAccounts = accountSearch.length >= 3
+        ? accounts.filter((account) => account.account_name.toLowerCase().includes(accountSearch.toLowerCase()))
+        : accounts;
 
     const markPaid = async (id) => {
         setIsUpdatingId(id);
@@ -89,20 +105,22 @@ const DueAccountsPage = ({ fixedMode = '' }) => {
                 <div className="row g-3 mt-2">
                     <div className="col-lg-4">
                         <div className="app-field">
-                            <label className="form-label" htmlFor="dueAccountSelect">{mode === 'b2b' ? 'Select B2B account' : 'Select general party'}</label>
-                            <select
+                            <label className="form-label" htmlFor="dueAccountSelect">{mode === 'b2b' ? 'B2B account name' : 'Cash party name'}</label>
+                            <input
                                 id="dueAccountSelect"
-                                className="form-select app-input"
-                                value={selectedAccountId}
-                                onChange={(event) => setSelectedAccountId(event.target.value)}
-                            >
-                                <option value="">Choose an account to inspect due orders</option>
-                                {accounts.map((account) => (
-                                    <option key={account.id} value={account.id}>
-                                        {account.account_name} {account.address ? `- ${account.address}` : ''}
+                                list="dueAccountOptions"
+                                className="form-control app-input"
+                                value={accountSearch}
+                                onChange={(event) => setAccountSearch(event.target.value)}
+                                placeholder={mode === 'b2b' ? 'Type 3 letters or choose from the list' : 'Type 3 letters to search party'}
+                            />
+                            <datalist id="dueAccountOptions">
+                                {filteredAccounts.map((account) => (
+                                    <option key={account.id} value={account.account_name}>
+                                        {account.address ? `${account.account_name} - ${account.address}` : account.account_name}
                                     </option>
                                 ))}
-                            </select>
+                            </datalist>
                         </div>
                     </div>
                     <div className="col-lg-4">
@@ -122,7 +140,7 @@ const DueAccountsPage = ({ fixedMode = '' }) => {
                         <div className="analytics-card h-100">
                             <span>Accounts with open due</span>
                             <strong>{accounts.length}</strong>
-                            <small>{selectedAccountId || invoiceId ? 'Showing due orders for the selected account, party, or invoice.' : 'Choose an account or enter an invoice id to load due orders.'}</small>
+                            <small>{selectedAccountId || invoiceId ? 'Showing due orders for the selected account, party, or invoice.' : 'Type 3 letters of the party/account or enter an invoice id to load due orders.'}</small>
                         </div>
                     </div>
                 </div>

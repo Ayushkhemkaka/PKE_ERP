@@ -425,7 +425,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
                         <h5 className="mb-1">Printed Format</h5>
                         <p className="section-subtitle mb-0">This challan layout appears immediately after a successful submit.</p>
                     </div>
-                    <div className="page-badge">{lastSubmittedOrder.invoiceNumber}</div>
+                    <div className="page-badge">{lastSubmittedOrder.receiptReference}</div>
                 </div>
                 <div className="invoice-sheet">
                     <div className="challan-preview-grid">
@@ -433,14 +433,27 @@ const OrderEntry = ({ mode = 'standard' }) => {
                             <div className="challan-preview-topline">Railway Gate Pass / Challan</div>
                             <div className="challan-preview-header">
                                 <div className="challan-brand-block">
-                                    <p className="challan-brand-name">P. K. ENTERPRISES</p>
+                                    <div className="challan-brand-line">
+                                        <div className="challan-logo-row">
+                                            <img src="/parentLogo.png" alt="PK Enterprises" className="challan-logo" />
+                                        </div>
+                                        <p className="challan-brand-name">P. K. ENTERPRISES</p>
+                                    </div>
                                     <p className="challan-brand-copy">Harinagar - 845106, Bihar</p>
                                     <p className="challan-brand-copy">GSTIN - 10AENPK8366A1ZQ</p>
                                 </div>
                                 <div className="challan-meta-block">
                                     <div className="challan-meta-row">
-                                        <span>Sl. No.</span>
-                                        <strong>{lastSubmittedOrder.invoiceNumber}</strong>
+                                        <span>Book No.</span>
+                                        <strong>{lastSubmittedOrder.bookNumber}</strong>
+                                    </div>
+                                    <div className="challan-meta-row">
+                                        <span>Slip No.</span>
+                                        <strong>{lastSubmittedOrder.slipNumber}</strong>
+                                    </div>
+                                    <div className="challan-meta-row">
+                                        <span>Year</span>
+                                        <strong>{lastSubmittedOrder.year || '-'}</strong>
                                     </div>
                                     <div className="challan-meta-row">
                                         <span>Date</span>

@@ -31,10 +31,12 @@
     "build": "node scripts/run-next-build.mjs",
     "db:migrate": "node --env-file=.env db/migrate.js",
     "db:reset": "node --env-file=.env db/reset-and-migrate.js",
-    "start": "next dev",
+    "start": "next start",
     "start:prod": "next start",
     "start:once": "next start",
     "deploy:build": "set ENFORCE_LINT_DURING_BUILD=true&& node scripts/run-next-build.mjs",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test tests/**/*.test.js",
+    "test:watch": "node --test --watch tests/**/*.test.js"
   }
 }

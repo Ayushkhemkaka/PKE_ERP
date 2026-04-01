@@ -22,7 +22,7 @@ const Login = () => {
             const response = await axios.post('/auth/login', { email, password });
             login(response.data.data);
             notify('success', response.data.message);
-            navigate('/');
+            navigate('/orderentry');
         } catch (error) {
             if (email.trim().toLowerCase() === demoCredentials.email && password === demoCredentials.password) {
                 login({
@@ -31,7 +31,7 @@ const Login = () => {
                     email: demoCredentials.email
                 });
                 notify('success', 'Demo login successful.');
-                navigate('/');
+                navigate('/orderentry');
                 return;
             }
             notify('error', error.response?.data?.message || 'Unable to log in right now.');

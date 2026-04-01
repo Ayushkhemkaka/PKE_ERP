@@ -78,11 +78,14 @@ code {
   color: var(--app-text) !important;
 }
 
-.app-brand h4 {
+.app-brand h2 {
   color: var(--app-text) !important;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  font-size: 1.08rem;
+  font-family: "Arial Black", "Franklin Gothic Heavy", "Segoe UI", sans-serif;
+  font-weight: 1200;
+  letter-spacing: 0.04em;
+  font-size: 1.8rem;
+  line-height: 0.95;
+  text-transform: uppercase;
 }
 
 .app-brand small {
@@ -90,17 +93,11 @@ code {
   font-size: 0.72rem;
 }
 
-.app-brand-mark {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-deep));
-  color: #fff;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+.app-brand-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  display: block;
 }
 
 .app-nav-links {
@@ -948,6 +945,51 @@ code {
   gap: 14px;
 }
 
+.receipt-desk-layout-public {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.receipt-public-shell {
+  padding: 0;
+}
+
+.app-main-public {
+  padding: 0;
+}
+
+.app-container-public {
+  max-width: none;
+  width: 100%;
+}
+
+.receipt-public-preview {
+  min-height: 100vh;
+  background: transparent;
+  padding: 10px 12px 16px;
+}
+
+.action-row-public {
+  justify-content: center;
+  margin-top: 12px !important;
+}
+
+.action-row-public-top {
+  margin-top: 0 !important;
+  margin-bottom: 10px;
+}
+
+.receipt-public-empty {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: clamp(1.5rem, 3.2vw, 2.5rem);
+  font-weight: 800;
+  color: var(--app-text-muted);
+  letter-spacing: 0.02em;
+}
+
 .receipt-list {
   display: grid;
   gap: 8px;
@@ -1108,6 +1150,23 @@ code {
   border-right: 1px solid rgba(42, 33, 24, 0.58);
 }
 
+.challan-brand-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.challan-logo-row {
+  flex: 0 0 auto;
+}
+
+.challan-logo {
+  width: 34px;
+  height: auto;
+  display: block;
+  filter: grayscale(1) contrast(6) brightness(1.75);
+}
+
 .challan-brand-name {
   margin: 0;
   font-size: 1.45rem;
@@ -1241,6 +1300,14 @@ code {
   gap: 10px;
 }
 
+.analytics-summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.analytics-signal-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
 .analytics-card,
 .analytics-split-card {
   background: rgba(255, 255, 255, 0.92);
@@ -1266,11 +1333,71 @@ code {
   font-size: 1.02rem;
 }
 
+.analytics-summary-card strong {
+  font-size: 1.08rem;
+}
+
 .analytics-card small,
 .analytics-split-card small {
   display: block;
   margin-top: 6px;
   color: var(--app-text-muted);
+}
+
+.analytics-filter-card .app-field,
+.analytics-heading .page-subtitle {
+  margin-bottom: 0;
+}
+
+.analytics-accordion {
+  display: grid;
+  gap: 12px;
+}
+
+.analytics-section-card {
+  border: 1px solid rgba(98, 73, 45, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+}
+
+.analytics-section-toggle {
+  width: 100%;
+  border: none;
+  background: linear-gradient(135deg, rgba(31, 111, 120, 0.06), rgba(255, 255, 255, 0.98));
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+
+.analytics-section-toggle strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--app-text);
+}
+
+.analytics-section-toggle small {
+  display: block;
+  margin-top: 4px;
+  color: var(--app-text-muted);
+  font-size: 0.82rem;
+}
+
+.analytics-section-toggle span {
+  color: var(--app-primary-deep);
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+
+.analytics-section-toggle-open {
+  border-bottom: 1px solid rgba(98, 73, 45, 0.08);
+}
+
+.analytics-section-body {
+  padding: 16px;
 }
 
 .analytics-split-card {
@@ -1300,6 +1427,46 @@ code {
 .analytics-chart-wrap canvas {
   width: 100% !important;
   height: 100% !important;
+}
+
+.analytics-list-card .section-card-header {
+  margin-bottom: 10px;
+}
+
+.analytics-compact-list {
+  display: grid;
+  gap: 8px;
+}
+
+.analytics-compact-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(98, 73, 45, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.analytics-compact-item strong {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.analytics-compact-item small {
+  display: block;
+  margin-top: 4px;
+  color: var(--app-text-muted);
+  font-size: 0.8rem;
+}
+
+.analytics-compact-item span {
+  white-space: nowrap;
+  color: var(--app-primary-deep);
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .chart-list {

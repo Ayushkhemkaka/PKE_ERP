@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
@@ -14,8 +14,27 @@ const InvoiceHistoryPage = ({ mode = 'normal' }) => {
     const [searchResults, setSearchResults] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [historyData, setHistoryData] = useState({ changes: [], workLog: [] });
+    const [itemOptions, setItemOptions] = useState([]);
+    const [accountOptions, setAccountOptions] = useState([]);
     const isB2B = mode === 'b2b';
     const orderedChanges = useMemo(() => [...(historyData.changes || [])], [historyData.changes]);
+
+    useEffect(() => {
+        const loadOptions = async () => {
+            try {
+                const [itemsResponse, accountsResponse] = await Promise.all([
+                    axios.get('/data/items/catalog'),
+                    axios.get('/data/accounts')
+                ]);
+                setItemOptions((itemsResponse.data.data || []).filter((itemRow) => itemRow.isActive).map((itemRow) => itemRow.itemName).sort((left, right) => left.localeCompare(right)));
+                setAccountOptions((accountsResponse.data.data || []).map((account) => account.account_name).sort((left, right) => left.localeCompare(right)));
+            } catch (error) {
+                notify('error', error.response?.data?.message || 'Unable to load history filters.');
+            }
+        };
+
+        loadOptions();
+    }, [notify]);
 
     const loadHistory = async (order) => {
         setSelectedOrder(order);
@@ -90,7 +109,10 @@ const InvoiceHistoryPage = ({ mode = 'normal' }) => {
                         <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='item'>Item</label>
-                                <input className="form-control app-input" type="text" id="item" name="item" />
+                                <select className="form-select app-input" id="item" name="item" defaultValue="">
+                                    <option value="">All items</option>
+                                    {itemOptions.map((itemName) => <option key={itemName} value={itemName}>{itemName}</option>)}
+                                </select>
                             </div>
                         </div>
                         <div className="col-lg-3 col-md-6">
@@ -102,7 +124,10 @@ const InvoiceHistoryPage = ({ mode = 'normal' }) => {
                         {isB2B ? <div className="col-lg-3 col-md-6">
                             <div className="app-field">
                                 <label className="form-label" htmlFor='customerAccountName'>Customer Account</label>
-                                <input className="form-control app-input" type="text" id="customerAccountName" name="customerAccountName" />
+                                <select className="form-select app-input" id="customerAccountName" name="customerAccountName" defaultValue="">
+                                    <option value="">All B2B accounts</option>
+                                    {accountOptions.map((accountName) => <option key={accountName} value={accountName}>{accountName}</option>)}
+                                </select>
                             </div>
                         </div> : null}
                     </div>

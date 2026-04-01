@@ -2,6 +2,28 @@ import { getConnection, query } from "../configs/dbConn.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { logUserWork } from "../utils/workTracking.js";
 
+const RECEIPT_DESK_EMAIL = 'receiptdesk@pke.local';
+
+const resolvePrintedByUserId = async (printedBy, printedByUserId) => {
+    if (printedByUserId) {
+        return printedByUserId;
+    }
+
+    if (printedBy !== 'Receipt Desk') {
+        return null;
+    }
+
+    const rows = await query(
+        `SELECT id
+         FROM app_user
+         WHERE email = ?
+         LIMIT 1`,
+        [RECEIPT_DESK_EMAIL]
+    );
+
+    return rows[0]?.id || null;
+}
+
 const listReceipts = async (req, res) => {
     try {
         const pendingOnly = req.query.status === 'pending';
@@ -64,7 +86,7 @@ const markReceiptPrinted = async (req, res) => {
     const reqBody = req.body || {};
     const id = reqBody.id;
     const printedBy = reqBody.printedBy || 'System';
-    const printedByUserId = reqBody.printedByUserId || null;
+    const printedByUserId = await resolvePrintedByUserId(printedBy, reqBody.printedByUserId || null);
 
     if (!id) {
         sendError(res, "Order id is required.");
@@ -117,7 +139,7 @@ const markReceiptPrinted = async (req, res) => {
         await logUserWork({
             userId: printedByUserId,
             userName: printedBy,
-            userEmail: printedBy.includes('@') ? printedBy : null,
+            userEmail: printedBy === 'Receipt Desk' ? RECEIPT_DESK_EMAIL : (printedBy.includes('@') ? printedBy : null),
             actionType: 'print_order',
             entityType: 'order',
             entityId: id,
