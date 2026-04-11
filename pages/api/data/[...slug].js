@@ -9,6 +9,8 @@ import { createItem, createMeasurementUnit, listItemCatalog, listMeasurementUnit
 import { insert, nextSequence } from '../../../controllers/insert.js';
 import { listRates, upsertRate } from '../../../controllers/rates.js';
 import { listReceipts, markReceiptPrinted } from '../../../controllers/receipts.js';
+import { listPendingOnsiteCash, markCollectedOnsiteCash } from '../../../controllers/onsiteCash.js';
+import { createSource, listSources, updateSourceStatus } from '../../../controllers/sources.js';
 import { update } from '../../../controllers/update.js';
 
 const handlers = {
@@ -50,6 +52,13 @@ const handlers = {
     GET: listMeasurementUnits,
     POST: createMeasurementUnit
   },
+  sources: {
+    GET: listSources,
+    POST: createSource
+  },
+  'sources/status': {
+    POST: updateSourceStatus
+  },
   'item-rates': {
     POST: updateItemRate
   },
@@ -80,6 +89,12 @@ const handlers = {
   },
   'receipts/print': {
     POST: markReceiptPrinted
+  },
+  'onsite-cash': {
+    GET: listPendingOnsiteCash
+  },
+  'onsite-cash/collect': {
+    POST: markCollectedOnsiteCash
   }
 };
 

@@ -9,7 +9,7 @@ const OrderUpdate = (props)=> {
     const [localNotice, setLocalNotice] = useState(null);
     const isB2B = props.mode === 'b2b';
     
-    const [finaceDetails , setFinanceDetails] = useState({'quantity' : props.initialData.quantity,'gross': props.initialData.gross,'tare': props.initialData.tare,'net': props.initialData.net,'rate' : props.initialData.rate ,'amount' :props.initialData.amount,'discount':props.initialData.discount,'freight':props.initialData.freight,'taxPercent':props.initialData.taxPercent,'taxAmount':props.initialData.taxAmount , 'totalAmount' :props.initialData.totalAmount, 'paymentStatus' :props.initialData.paymentStatus, 'dueAmount':props.initialData.dueAmount, 'cashCredit':props.initialData.cashCredit,'bankCredit' :props.initialData.bankCredit})
+    const [finaceDetails , setFinanceDetails] = useState({'quantity' : props.initialData.quantity,'gross': props.initialData.gross,'tare': props.initialData.tare,'net': props.initialData.net,'rate' : props.initialData.rate ,'amount' :props.initialData.amount,'discount':props.initialData.discount,'freight':props.initialData.freight,'taxPercent':props.initialData.taxPercent,'taxAmount':props.initialData.taxAmount , 'totalAmount' :props.initialData.totalAmount, 'paymentStatus' :props.initialData.paymentStatus, 'dueAmount':props.initialData.dueAmount, 'cashCredit':props.initialData.cashCredit,'bankCredit' :props.initialData.bankCredit, 'needToCollectCash': props.initialData.needToCollectCash, 'isCollectedCashFromOnsite': props.initialData.isCollectedCashFromOnsite})
 
     const financeDetailsChangeHandler = (value) =>{
         setFinanceDetails(value)
@@ -82,6 +82,8 @@ const OrderUpdate = (props)=> {
         input.dueamount = parseFloat(finaceDetails.dueAmount)
         input.cashcredit = parseFloat(finaceDetails.cashCredit)
         input.bankcredit = parseFloat(finaceDetails.bankCredit)
+        input.needtocollectcash = Boolean(finaceDetails.needToCollectCash)
+        input.iscollectedcashfromonsite = Boolean(finaceDetails.isCollectedCashFromOnsite)
         input.updatedBy = currentUser?.fullName || currentUser?.email || 'System'
         input.updatedByUserId = currentUser?.id || null
                 
@@ -176,6 +178,7 @@ const OrderUpdate = (props)=> {
                         showRateAsText={!isB2B}
                         showTaxFields={isB2B}
                         requirePaymentStatus={isB2B}
+                        allowCashOnsite={true}
                     />
                     <div className='action-row mt-4'>
                         <button id="reset" type="reset" className="btn btn-outline-secondary btn-lg" onClick={cancelClickHandler} disabled={isSaving}>Close</button>

@@ -9,6 +9,7 @@ import RateManager from './Components/RateManager.js';
 import MeasurementUnitManager from './Components/MeasurementUnitManager.js';
 import ItemRateUpdatePage from './Components/ItemRateUpdatePage.js';
 import ItemStatusManager from './Components/ItemStatusManager.js';
+import SourceManager from './Components/SourceManager.js';
 import Login from './Components/Login.js';
 import Signup from './Components/Signup.js'
 import AppAlert from './Components/AppAlert.js';
@@ -20,6 +21,7 @@ import AnalyticsPage from './Components/AnalyticsPage.js';
 import EmployeeReceiptDesk from './Components/EmployeeReceiptDesk.js';
 import OwnerReceiptReprint from './Components/OwnerReceiptReprint.js';
 import InvoiceHistoryPage from './Components/InvoiceHistoryPage.js';
+import OnsiteCashCollectionPage from './Components/OnsiteCashCollectionPage.js';
 
 const RouteLoader = () => (
   <main className="app-main">
@@ -59,11 +61,13 @@ function AppLayout() {
             <Route path='/items/units' element={currentUser ? <MeasurementUnitManager /> : <Navigate to="/login" replace />} />
             <Route path='/items/rates' element={currentUser ? <ItemRateUpdatePage /> : <Navigate to="/login" replace />} />
             <Route path='/items/status' element={currentUser ? <ItemStatusManager /> : <Navigate to="/login" replace />} />
+            <Route path='/items/sources' element={currentUser ? <SourceManager /> : <Navigate to="/login" replace />} />
             <Route path='/rates' element={<Navigate to="/items/add" replace />} />
             <Route path='/accounts/create' element={currentUser ? <AccountCreate /> : <Navigate to="/login" replace />} />
             <Route path='/accounts/fetch' element={currentUser ? <AccountFetch /> : <Navigate to="/login" replace />} />
             <Route path='/due-accounts' element={currentUser ? <DueAccountsPage /> : <Navigate to="/login" replace />} />
             <Route path='/cash/due' element={currentUser ? <DueAccountsPage fixedMode="normal" /> : <Navigate to="/login" replace />} />
+            <Route path='/onsite-cash' element={currentUser ? <OnsiteCashCollectionPage /> : <Navigate to="/login" replace />} />
             <Route path='/b2b/due' element={currentUser ? <DueAccountsPage fixedMode="b2b" /> : <Navigate to="/login" replace />} />
             <Route path='/cash/history' element={currentUser ? <InvoiceHistoryPage mode="normal" /> : <Navigate to="/login" replace />} />
             <Route path='/b2b/history' element={currentUser ? <InvoiceHistoryPage mode="b2b" /> : <Navigate to="/login" replace />} />

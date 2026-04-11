@@ -8,6 +8,7 @@ const allowedColumns = new Set([
     'amount', 'discount', 'freight', 'taxpercent', 'taxamount',
     'totalamount', 'paymentstatus', 'dueamount', 'cashcredit', 'bankcredit',
     'ordertype', 'customeraccountname', 'customergstin', 'due_on_create', 'due_paid', 'orderstatus', 'is_printed', 'printed_by',
+    'need_to_collect_cash', 'is_collected_cash_from_onsite',
     'gross', 'tare', 'net', 'remarks'
 ]);
 

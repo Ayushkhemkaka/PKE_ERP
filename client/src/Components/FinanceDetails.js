@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import Input from './Input.js';
+import { buildCashOnsiteState, buildPaymentState, normalizeAmount } from '../../../utils/paymentStatus.js';
 
 const FinanceDetails = (props) => {
     const showTaxFields = props.showTaxFields ?? true;
     const useQuantityInput = String(props.measurementUnit || '').toLowerCase() !== 'tons';
     const normalizeNumber = (value, fallback = 0) => {
-        const parsedValue = Number(value)
+        const parsedValue = normalizeAmount(value)
         return Number.isFinite(parsedValue) ? parsedValue : fallback
     }
     const roundTo = (value, decimals = 3) => {
@@ -33,42 +34,11 @@ const FinanceDetails = (props) => {
     const [paymentStatus,setPaymentStatus] = useState(props.value.paymentStatus)
     const [cashCredit,setCashCredit] = useState(props.value.cashCredit)
     const [bankCredit,setBankCredit] = useState(props.value.bankCredit)
+    const [needToCollectCash, setNeedToCollectCash] = useState(Boolean(props.value.needToCollectCash))
+    const [isCollectedCashFromOnsite, setIsCollectedCashFromOnsite] = useState(Boolean(props.value.isCollectedCashFromOnsite))
     const notify = (message) => {
         if (props.onNotify) {
             props.onNotify('error', message);
-        }
-    }
-
-    const buildPaymentBreakdown = (baseValue, paymentStatusValue, existingValues = props.value) => {
-        const normalizedTotal = normalizeNumber(baseValue)
-        const existingDue = normalizeNumber(existingValues.dueAmount)
-        const existingCash = normalizeNumber(existingValues.cashCredit)
-        const existingBank = normalizeNumber(existingValues.bankCredit)
-
-        if (paymentStatusValue === "Bank") {
-            return { dueAmount: 0, cashCredit: 0, bankCredit: normalizedTotal }
-        }
-        if (paymentStatusValue === "Cash") {
-            return { dueAmount: 0, cashCredit: normalizedTotal, bankCredit: 0 }
-        }
-        if (paymentStatusValue === "Due") {
-            return { dueAmount: normalizedTotal, cashCredit: 0, bankCredit: 0 }
-        }
-        if (paymentStatusValue === "CashBank") {
-            const totalExisting = existingDue + existingCash + existingBank
-            if (totalExisting === 0) {
-                return { dueAmount: 0, cashCredit: 0, bankCredit: normalizedTotal }
-            }
-            const safeCash = Math.min(existingCash, normalizedTotal)
-            const safeBank = Math.min(existingBank, Math.max(normalizedTotal - safeCash, 0))
-            const safeDue = Math.max(normalizedTotal - safeCash - safeBank, 0)
-            return { dueAmount: safeDue, cashCredit: safeCash, bankCredit: safeBank }
-        }
-
-        return {
-            dueAmount: existingValues.dueAmount,
-            cashCredit: existingValues.cashCredit,
-            bankCredit: existingValues.bankCredit
         }
     }
 
@@ -82,12 +52,34 @@ const FinanceDetails = (props) => {
         setCashCredit(normalizedCash)
         setBankCredit(normalizedBank)
         setDueAmount(normalizedDue)
+        setNeedToCollectCash(false)
+        setIsCollectedCashFromOnsite(false)
         props.onChange({
             ...baseProps,
             cashCredit: normalizedCash,
             bankCredit: normalizedBank,
             dueAmount: normalizedDue,
-            paymentStatus: "Due"
+            paymentStatus: "Due",
+            needToCollectCash: false,
+            isCollectedCashFromOnsite: false
+        })
+    }
+
+    const syncCashOnsiteBalance = (cashValue, baseTotal = totalAmount, baseProps = props.value) => {
+        const nextState = buildCashOnsiteState(baseTotal, cashValue, baseProps)
+        setCashCredit(nextState.cashCredit)
+        setBankCredit(nextState.bankCredit)
+        setDueAmount(nextState.dueAmount)
+        setNeedToCollectCash(nextState.needToCollectCash)
+        setIsCollectedCashFromOnsite(nextState.isCollectedCashFromOnsite)
+        props.onChange({
+            ...baseProps,
+            cashCredit: nextState.cashCredit,
+            bankCredit: nextState.bankCredit,
+            dueAmount: nextState.dueAmount,
+            paymentStatus: "CashOnsite",
+            needToCollectCash: nextState.needToCollectCash,
+            isCollectedCashFromOnsite: nextState.isCollectedCashFromOnsite
         })
     }
 
@@ -108,6 +100,8 @@ const FinanceDetails = (props) => {
             setPaymentStatus(props.value.paymentStatus)
             setCashCredit(props.value.cashCredit)
             setBankCredit(props.value.bankCredit)
+            setNeedToCollectCash(Boolean(props.value.needToCollectCash))
+            setIsCollectedCashFromOnsite(Boolean(props.value.isCollectedCashFromOnsite))
         }
     }, [props.reset])
 
@@ -131,7 +125,7 @@ const FinanceDetails = (props) => {
         const nextAmount = Math.max((nextRate * nextQuantity) - nextDiscount, 0)
         const nextTaxAmount = showTaxFields ? (normalizeNumber(props.value.taxPercent) * nextAmount * 0.01) : 0
         const nextTotalAmount = nextAmount + normalizeNumber(props.value.freight) + nextTaxAmount
-        const paymentBreakdown = buildPaymentBreakdown(nextTotalAmount, props.value.paymentStatus, props.value)
+        const paymentBreakdown = buildPaymentState(nextTotalAmount, props.value.paymentStatus, props.value)
 
         setAmount(nextAmount)
         setTaxAmount(nextTaxAmount)
@@ -139,6 +133,8 @@ const FinanceDetails = (props) => {
         setDueAmount(paymentBreakdown.dueAmount)
         setCashCredit(paymentBreakdown.cashCredit)
         setBankCredit(paymentBreakdown.bankCredit)
+        setNeedToCollectCash(Boolean(paymentBreakdown.needToCollectCash))
+        setIsCollectedCashFromOnsite(Boolean(paymentBreakdown.isCollectedCashFromOnsite))
 
         const shouldSyncParent =
             normalizeNumber(props.value.amount) !== nextAmount ||
@@ -146,7 +142,9 @@ const FinanceDetails = (props) => {
             normalizeNumber(props.value.totalAmount) !== nextTotalAmount ||
             normalizeNumber(props.value.dueAmount) !== normalizeNumber(paymentBreakdown.dueAmount) ||
             normalizeNumber(props.value.cashCredit) !== normalizeNumber(paymentBreakdown.cashCredit) ||
-            normalizeNumber(props.value.bankCredit) !== normalizeNumber(paymentBreakdown.bankCredit)
+            normalizeNumber(props.value.bankCredit) !== normalizeNumber(paymentBreakdown.bankCredit) ||
+            Boolean(props.value.needToCollectCash) !== Boolean(paymentBreakdown.needToCollectCash) ||
+            Boolean(props.value.isCollectedCashFromOnsite) !== Boolean(paymentBreakdown.isCollectedCashFromOnsite)
 
         if (shouldSyncParent) {
             props.onChange({
@@ -156,7 +154,9 @@ const FinanceDetails = (props) => {
                 totalAmount: nextTotalAmount,
                 dueAmount: paymentBreakdown.dueAmount,
                 cashCredit: paymentBreakdown.cashCredit,
-                bankCredit: paymentBreakdown.bankCredit
+                bankCredit: paymentBreakdown.bankCredit,
+                needToCollectCash: Boolean(paymentBreakdown.needToCollectCash),
+                isCollectedCashFromOnsite: Boolean(paymentBreakdown.isCollectedCashFromOnsite)
             })
         }
     }, [props.value.rate, props.value.discount, props.value.quantity, props.value.net, props.value.gross, props.value.tare, props.value.freight, props.value.taxPercent, useQuantityInput, showTaxFields])
@@ -205,15 +205,22 @@ const FinanceDetails = (props) => {
         let totalAmountValue = normalizeNumber(taxAmount) + normalizeNumber(amount) + normalizeNumber(freight)
         totalAmountValue = totalAmountValue === 0 ? "0" : totalAmountValue
         setTotalAmount(totalAmountValue)
-        if(paymentStatus === "Bank" ){
-            setBankCredit(totalAmountValue)
-            props.onChange({...props.value,...change,'totalAmount':totalAmountValue,'bankCredit':totalAmountValue})
-        }else if(paymentStatus === "Cash"){
-            setCashCredit(totalAmountValue)
-            props.onChange({...props.value,...change,'totalAmount':totalAmountValue,'cashCredit':totalAmountValue})
-        }else{
-            props.onChange({...props.value,...change,'totalAmount':totalAmountValue})
-        }
+        const paymentBreakdown = buildPaymentState(totalAmountValue, paymentStatus, props.value)
+        setDueAmount(paymentBreakdown.dueAmount)
+        setCashCredit(paymentBreakdown.cashCredit)
+        setBankCredit(paymentBreakdown.bankCredit)
+        setNeedToCollectCash(Boolean(paymentBreakdown.needToCollectCash))
+        setIsCollectedCashFromOnsite(Boolean(paymentBreakdown.isCollectedCashFromOnsite))
+        props.onChange({
+            ...props.value,
+            ...change,
+            'totalAmount':totalAmountValue,
+            'dueAmount': paymentBreakdown.dueAmount,
+            'cashCredit': paymentBreakdown.cashCredit,
+            'bankCredit': paymentBreakdown.bankCredit,
+            'needToCollectCash': Boolean(paymentBreakdown.needToCollectCash),
+            'isCollectedCashFromOnsite': Boolean(paymentBreakdown.isCollectedCashFromOnsite)
+        })
     }
 
     const quantityChangeHandler=(value)=>{
@@ -225,6 +232,27 @@ const FinanceDetails = (props) => {
     const updateWeightValues = (nextGross, nextTare) => {
         const normalizedGross = roundTo(nextGross)
         const normalizedTare = roundTo(nextTare)
+        if (normalizedTare > normalizedGross) {
+            notify('Tare cannot be greater than gross weight.')
+            setTare(normalizedGross)
+            const nextNet = 0
+            setGross(normalizedGross)
+            setTare(normalizedGross)
+            setNet(nextNet)
+            props.onChange({
+                ...props.value,
+                gross: normalizedGross,
+                tare: normalizedGross,
+                net: nextNet,
+                quantity: nextNet
+            })
+            setAmountValue(rate, nextNet, discount, {
+                gross: normalizedGross,
+                tare: normalizedGross,
+                net: nextNet
+            })
+            return
+        }
         const nextNet = roundTo(Math.max(normalizedGross - normalizedTare, 0))
         setGross(normalizedGross)
         setTare(normalizedTare)
@@ -314,12 +342,14 @@ const FinanceDetails = (props) => {
 
     const dueAmountChangeHandler = (value) =>{
         const dueAmountValue = value
-        if(paymentStatus !== "Due" ){
+        if(paymentStatus !== "Due" && paymentStatus !== "CashOnsite" ){
             setDueAmount(0)
-            notify("Select payment status as Due to proceed.")
+            notify("Select payment status as Due or Cash - Onsite to edit due amount.")
             props.onChange({...props.value,'dueAmount':0}) 
         }else if(normalizeNumber(dueAmountValue) > normalizeNumber(totalAmount)){
             notify("Due amount cannot be greater than total amount.")
+        }else if(paymentStatus === "CashOnsite"){
+            notify("Due amount is calculated automatically from total amount minus cash credit.")
         }else{
             setDueAmount(dueAmountValue)
             if(normalizeNumber(dueAmountValue) === normalizeNumber(totalAmount)){
@@ -334,34 +364,24 @@ const FinanceDetails = (props) => {
 
     const paymentStatusChangeHandler = (event) =>{
         const paymentStatusValue = event.target.value
-        setPaymentStatus(paymentStatusValue)      
-
-        if(paymentStatusValue === "Bank"){            
-            setBankCredit(totalAmount)
-            setDueAmount(0)
-            setCashCredit(0)
-            props.onChange({...props.value,'bankCredit':totalAmount,'cashCredit':0,'dueAmount':0,'paymentStatus' : paymentStatusValue}) 
-        }else if(paymentStatusValue === "Cash"){
-            setCashCredit(totalAmount)
-            setBankCredit(0)
-            setDueAmount(0)
-            props.onChange({...props.value,'bankCredit':0,'cashCredit':totalAmount,'dueAmount':0,'paymentStatus' : paymentStatusValue}) 
-        }else if(paymentStatusValue === "CashBank" ){
-            setCashCredit("")
-            setBankCredit("")
-            setDueAmount("")
-            props.onChange({...props.value,'bankCredit':'','cashCredit':'','dueAmount':'','paymentStatus' : paymentStatusValue})
-        }else if(paymentStatusValue === "Due"){
-            setCashCredit(0)
-            setBankCredit(0)
-            setDueAmount(totalAmount)
-            props.onChange({...props.value,'bankCredit':0,'cashCredit':0,'dueAmount':totalAmount,'paymentStatus' : paymentStatusValue})
-        }else{
-            setCashCredit(0)
-            setBankCredit(0)
-            setDueAmount(0)
-            props.onChange({...props.value,'bankCredit':0,'cashCredit':0,'dueAmount':0,'paymentStatus' : paymentStatusValue})
-        }
+        setPaymentStatus(paymentStatusValue)
+        const paymentBreakdown = paymentStatusValue === 'CashOnsite'
+            ? buildCashOnsiteState(totalAmount, totalAmount, props.value)
+            : buildPaymentState(totalAmount, paymentStatusValue, props.value)
+        setCashCredit(paymentBreakdown.cashCredit)
+        setBankCredit(paymentBreakdown.bankCredit)
+        setDueAmount(paymentBreakdown.dueAmount)
+        setNeedToCollectCash(Boolean(paymentBreakdown.needToCollectCash))
+        setIsCollectedCashFromOnsite(Boolean(paymentBreakdown.isCollectedCashFromOnsite))
+        props.onChange({
+            ...props.value,
+            'bankCredit': paymentBreakdown.bankCredit,
+            'cashCredit': paymentBreakdown.cashCredit,
+            'dueAmount': paymentBreakdown.dueAmount,
+            'paymentStatus' : paymentStatusValue,
+            'needToCollectCash': Boolean(paymentBreakdown.needToCollectCash),
+            'isCollectedCashFromOnsite': Boolean(paymentBreakdown.isCollectedCashFromOnsite)
+        })
     }
 
     const cashCreditChangeHandler = (value) =>{
@@ -383,6 +403,8 @@ const FinanceDetails = (props) => {
             props.onChange({...props.value,'bankCredit':bankCreditValue,'cashCredit':cashCreditValue}) 
         }else if(paymentStatus === "Due"){
             syncDueBalance(cashCreditValue, bankCredit)
+        }else if(paymentStatus === "CashOnsite"){
+            syncCashOnsiteBalance(cashCreditValue)
         }else if(paymentStatus === "Bank"){
             notify('Change the payment status to Cash or Cash & Bank to edit cash credit.')
         }else if(paymentStatus === ""){
@@ -410,6 +432,8 @@ const FinanceDetails = (props) => {
             props.onChange({...props.value,'bankCredit':bankCreditValue,'cashCredit':cashCreditValue}) 
         }else if(paymentStatus === "Due"){
             syncDueBalance(cashCredit, bankCreditValue)
+        }else if(paymentStatus === "CashOnsite"){
+            notify('Bank credit is not allowed for Cash - Onsite.')
         }else if(paymentStatus === "Cash"){
             notify('Change the payment status to Bank or Cash & Bank to edit bank credit.')
         }else if(paymentStatus === ""){
@@ -455,6 +479,7 @@ const FinanceDetails = (props) => {
                             <option value="Cash">Cash</option>
                             <option value="Bank">Bank</option>
                             <option value="CashBank">Cash & Bank</option>
+                            {props.allowCashOnsite ? <option value="CashOnsite">Cash - Onsite</option> : null}
                             <option value="Due">Due</option>
                         </select>
                     </div>
@@ -462,8 +487,8 @@ const FinanceDetails = (props) => {
             </div>
             <div className='row g-3 mt-1'>
                 <Input name={"Cash Credit"} id={"cashCredit"} placeholder={"Cash Credit for Order"} isDisabled={false} value={cashCredit} onChange={cashCreditChangeHandler} isRequired={false}/>
-                <Input name={"Bank Credit"} id={"bankCredit"} placeholder={"Bank Credit for Order"} isDisabled={false} value={bankCredit} onChange={bankCreditChangeHandler} isRequired={false}/>
-                <Input name={"Due Amount"} id={"dueAmount"} placeholder={"Due Amount for Order"} isDisabled={false} value={dueAmount} onChange={dueAmountChangeHandler} isRequired={false}/>
+                <Input name={"Bank Credit"} id={"bankCredit"} placeholder={"Bank Credit for Order"} isDisabled={paymentStatus === "CashOnsite"} value={bankCredit} onChange={bankCreditChangeHandler} isRequired={false}/>
+                <Input name={"Due Amount"} id={"dueAmount"} placeholder={"Due Amount for Order"} isDisabled={paymentStatus === "CashOnsite"} value={dueAmount} onChange={dueAmountChangeHandler} isRequired={false}/>
             </div>
         </div>
     )

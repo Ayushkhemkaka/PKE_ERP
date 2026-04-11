@@ -2,6 +2,7 @@ import { getConnection } from "../configs/dbConn.js"
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { logUserWork } from "../utils/workTracking.js";
 import { normalizeOrderMode } from "../utils/orderTables.js";
+import { buildPaymentState } from "../utils/paymentStatus.js";
 
 const update = async (req,res) =>{
     const reqBody = req.body?.body || req.body || {};
@@ -21,7 +22,8 @@ const update = async (req,res) =>{
         await client.beginTransaction();
         const [currentResult] = await client.execute(
             `SELECT id, quantity, gross, tare, net, rate, amount, discount, freight, taxpercent, taxamount, totalamount,
-                    paymentstatus, orderstatus, cancelledat, cancelledby, dueamount, due_on_create, due_paid, cashcredit, bankcredit
+                    paymentstatus, orderstatus, cancelledat, cancelledby, dueamount, due_on_create, due_paid, cashcredit, bankcredit,
+                    need_to_collect_cash, is_collected_cash_from_onsite
              FROM ${targetTable}
              WHERE id = ?`,
             [reqBody.id]
@@ -35,8 +37,15 @@ const update = async (req,res) =>{
 
         const previous = currentResult[0];
         const isCancellation = reqBody.action === 'cancel';
-        const dueOnCreate = Number(previous.due_on_create || reqBody.due_on_create || reqBody.dueamount || 0);
-        const nextDueAmount = Number(reqBody.dueamount || 0);
+        const paymentState = buildPaymentState(reqBody.totalamount, reqBody.paymentstatus, {
+            dueAmount: reqBody.dueamount,
+            cashCredit: reqBody.cashcredit,
+            bankCredit: reqBody.bankcredit,
+            needToCollectCash: reqBody.needtocollectcash,
+            isCollectedCashFromOnsite: reqBody.iscollectedcashfromonsite
+        });
+        const dueOnCreate = Number(previous.due_on_create || reqBody.due_on_create || paymentState.dueAmount || 0);
+        const nextDueAmount = Number(paymentState.dueAmount || 0);
         const nextOrderStatus = isCancellation ? 'Cancelled' : (previous.orderstatus || 'Active');
         const nextCancelledAt = isCancellation ? new Date() : previous.cancelledat;
         const nextCancelledBy = isCancellation ? updatedBy : previous.cancelledby;
@@ -56,18 +65,20 @@ const update = async (req,res) =>{
             orderstatus: nextOrderStatus,
             cancelledat: nextCancelledAt,
             cancelledby: nextCancelledBy,
-            dueamount: reqBody.dueamount || 0,
+            dueamount: paymentState.dueAmount,
             due_on_create: dueOnCreate,
             due_paid: Math.max(dueOnCreate - nextDueAmount, 0),
-            cashcredit: reqBody.cashcredit || 0,
-            bankcredit: reqBody.bankcredit || 0
+            cashcredit: paymentState.cashCredit,
+            bankcredit: paymentState.bankCredit,
+            need_to_collect_cash: paymentState.needToCollectCash ? 1 : 0,
+            is_collected_cash_from_onsite: paymentState.isCollectedCashFromOnsite ? 1 : 0
         };
 
         await client.execute(
             `UPDATE ${targetTable}
              SET quantity = ?, gross = ?, tare = ?, net = ?, rate = ?, amount = ?, discount = ?, freight = ?, taxpercent = ?, taxamount = ?,
                  totalamount = ?, paymentstatus = ?, orderstatus = ?, cancelledat = ?, cancelledby = ?, dueamount = ?, due_on_create = ?, due_paid = ?, cashcredit = ?,
-                 bankcredit = ?, lastupdatedby = ?
+                 bankcredit = ?, need_to_collect_cash = ?, is_collected_cash_from_onsite = ?, lastupdatedby = ?
              WHERE id = ?`,
             [
                 next.quantity,
@@ -90,6 +101,8 @@ const update = async (req,res) =>{
                 next.due_paid,
                 next.cashcredit,
                 next.bankcredit,
+                next.need_to_collect_cash,
+                next.is_collected_cash_from_onsite,
                 updatedBy,
                 reqBody.id
             ]

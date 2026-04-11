@@ -1,4 +1,5 @@
 const nextConfig = {
+  reactStrictMode: false,
   eslint: {
     ignoreDuringBuilds: process.env.ENFORCE_LINT_DURING_BUILD !== 'true'
   },

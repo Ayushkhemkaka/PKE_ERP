@@ -75,6 +75,9 @@ const NavBar = () => {
     if (location.pathname === '/items/status') {
       return 'Items: Status';
     }
+    if (location.pathname === '/items/sources') {
+      return 'Items: Sources';
+    }
     return 'Items';
   };
 
@@ -139,7 +142,11 @@ const NavBar = () => {
                   <Link className="nav-group-link" to="/items/units" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Units</Link>
                   <Link className="nav-group-link" to="/items/rates" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Rates</Link>
                   <Link className="nav-group-link" to="/items/status" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Status</Link>
+                  <Link className="nav-group-link" to="/items/sources" style={{ textDecoration: 'none' }} onClick={closeMenuHandler}>Sources</Link>
                 </div> : null}
+              </li>
+              <li className="nav-item">
+                <Link className="nav-link" to="/onsite-cash" style={{ textDecoration: 'none' }}>Onsite Cash</Link>
               </li>
               <li className="nav-item">
                 <Link className="nav-link" to="/analytics" style={{ textDecoration: 'none' }}>Analytics</Link>

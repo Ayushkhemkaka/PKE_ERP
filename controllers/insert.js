@@ -1,6 +1,7 @@
 import { query } from "../configs/dbConn.js"
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { logUserWork } from "../utils/workTracking.js";
+import { buildPaymentState, normalizeAmount } from "../utils/paymentStatus.js";
 
 const requiredFields = ['date', 'name', 'site', 'lorryNumber', 'item', 'measurementUnit', 'source'];
 const toNumber = (value, fallback = 0) => {
@@ -82,8 +83,9 @@ const insert = async (req,res) =>{
     const nextSequence = await getNextBookSlip(null, reqBody.date);
     reqBody.bookNumber = nextSequence.bookNumber;
     reqBody.slipNumber = nextSequence.slipNumber;
-    const dueOnCreate = toNumber(reqBody.dueOnCreate ?? reqBody.dueAmount);
-    const duePaid = calculateDuePaid(dueOnCreate, reqBody.dueAmount);
+    const paymentState = buildPaymentState(reqBody.totalAmount, reqBody.paymentStatus, reqBody);
+    const dueOnCreate = toNumber(reqBody.dueOnCreate ?? paymentState.dueAmount);
+    const duePaid = calculateDuePaid(dueOnCreate, paymentState.dueAmount);
     const id = buildEntryId(reqBody.bookNumber, reqBody.slipNumber, reqBody.date);
     const values = [
         id,
@@ -113,11 +115,13 @@ const insert = async (req,res) =>{
         toNumber(reqBody.taxAmount),
         toNumber(reqBody.totalAmount),
         reqBody.paymentStatus,
-        toNumber(reqBody.dueAmount),
+        toNumber(paymentState.dueAmount),
         dueOnCreate,
         duePaid,
-        toNumber(reqBody.cashCredit),
-        toNumber(reqBody.bankCredit),
+        toNumber(paymentState.cashCredit),
+        toNumber(paymentState.bankCredit),
+        paymentState.needToCollectCash ? 1 : 0,
+        paymentState.isCollectedCashFromOnsite ? 1 : 0,
         reqBody.source,
         reqBody.remarks || '',
         reqBody.slipNumber,
@@ -130,11 +134,11 @@ const insert = async (req,res) =>{
             `INSERT INTO order_entry(
                 id, bookNumber, orderType, customerAccountId, customerAccountName, itemId, measurementUnitId, itemRateId, customerGstin, date, name, site, lorryNumber, item, measurementUnit,
                 quantity, gross, tare, net, rate, amount, discount, freight, taxPercent, taxAmount, totalAmount,
-                paymentStatus, dueAmount, due_on_create, due_paid, cashCredit, bankCredit, source, remarks, slipNumber, lastUpdatedBy, createdBy
+                paymentStatus, dueAmount, due_on_create, due_paid, cashCredit, bankCredit, need_to_collect_cash, is_collected_cash_from_onsite, source, remarks, slipNumber, lastUpdatedBy, createdBy
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )`,
             values
         );
@@ -158,6 +162,8 @@ const insert = async (req,res) =>{
                 gross: toNumber(reqBody.gross),
                 tare: toNumber(reqBody.tare),
                 net: toNumber(reqBody.net),
+                needToCollectCash: paymentState.needToCollectCash,
+                isCollectedCashFromOnsite: paymentState.isCollectedCashFromOnsite,
                 customerAccountName: reqBody.customerAccountName || null
             }
         });

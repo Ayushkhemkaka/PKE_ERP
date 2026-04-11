@@ -12,13 +12,14 @@ const OrderEntry = ({ mode = 'standard' }) => {
 
     const [item, setItem] = useState("")
     const [measurementUnit, setMeasurementUnit] = useState("")
-    const [finaceDetails, setFinanceDetails] = useState({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
+    const [finaceDetails, setFinanceDetails] = useState({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0, 'needToCollectCash': false, 'isCollectedCashFromOnsite': false })
     const [reset, setReset] = useState(0)
     const [date, setDate] = useState(moment().format("YYYY-MM-DD"))
     const [lastSubmittedOrder, setLastSubmittedOrder] = useState(null)
     const [bookNumber, setBookNumber] = useState(1)
     const [slipNumber, setSlipNumber] = useState(1)
     const [itemCatalog, setItemCatalog] = useState([])
+    const [sources, setSources] = useState([])
     const [customerAccounts, setCustomerAccounts] = useState([])
     const [selectedAccountId, setSelectedAccountId] = useState("")
 
@@ -54,11 +55,21 @@ const OrderEntry = ({ mode = 'standard' }) => {
         }
     }, [isB2B])
 
+    const fetchSources = useCallback(async () => {
+        try {
+            const response = await axios.get('/data/sources');
+            setSources(response.data.data || []);
+        } catch (error) {
+            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load sources right now. Please try again.' });
+        }
+    }, [])
+
     useEffect(() => {
         fetchNextSequence(date);
         fetchItems();
         fetchAccounts();
-    }, [date, fetchNextSequence, fetchItems, fetchAccounts]);
+        fetchSources();
+    }, [date, fetchNextSequence, fetchItems, fetchAccounts, fetchSources]);
 
     useEffect(() => {
         if (!item || !measurementUnit) {
@@ -111,6 +122,10 @@ const OrderEntry = ({ mode = 'standard' }) => {
         .filter((catalogItem) => catalogItem.isActive)
         .map((catalogItem) => catalogItem.itemName)
         .sort((left, right) => left.localeCompare(right))
+    const sourceOptions = sources
+        .filter((source) => Number(source.is_active) === 1)
+        .map((source) => source.source_name)
+        .sort((left, right) => left.localeCompare(right))
 
     const selectedItemConfig = itemCatalog.find((catalogItem) => catalogItem.itemName === item)
     const measurementUnitOptions = selectedItemConfig?.measurementUnits || []
@@ -122,7 +137,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
     }
 
     const resetClickHandler = () => {
-        setFinanceDetails({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0 })
+        setFinanceDetails({ 'quantity': 0, 'gross': 0, 'tare': 0, 'net': 0, 'rate': 0, 'amount': 0, 'discount': 0, 'freight': 0, 'taxPercent': 0, 'taxAmount': 0, 'totalAmount': 0, 'paymentStatus': '', 'dueAmount': 0, 'cashCredit': 0, 'bankCredit': 0, 'needToCollectCash': false, 'isCollectedCashFromOnsite': false })
         setReset(reset + 1)
         setLocalNotice(null)
         setDate(moment().format("YYYY-MM-DD"))
@@ -191,6 +206,8 @@ const OrderEntry = ({ mode = 'standard' }) => {
         input.dueAmount = Number(finaceDetails.dueAmount || 0)
         input.cashCredit = Number(finaceDetails.cashCredit || 0)
         input.bankCredit = Number(finaceDetails.bankCredit || 0)
+        input.needToCollectCash = Boolean(finaceDetails.needToCollectCash)
+        input.isCollectedCashFromOnsite = Boolean(finaceDetails.isCollectedCashFromOnsite)
         input.source = event.target.source.value
         input.remarks = event.target.remarks.value
         input.slipNumber = slipNumber
@@ -312,8 +329,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
                                 <label className="form-label" htmlFor='source'>Source:</label>
                                 <select id="source" className="form-select app-input" name="source" required>
                                     <option value=''></option>
-                                    <option value="Plant">Plant</option>
-                                    <option value="Rake">Rake</option>
+                                    {sourceOptions.map((sourceName) => <option key={sourceName} value={sourceName}>{sourceName}</option>)}
                                 </select>
                             </div>
                         </div>
@@ -410,6 +426,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
                     hideRateField={true}
                     showTaxFields={isB2B}
                     requirePaymentStatus={!isB2B}
+                    allowCashOnsite={true}
                     measurementSelection={measurementUnit}
                     measurementUnit={measurementUnit}
                 />

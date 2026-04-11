@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS measurement_unit (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS source (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_name VARCHAR(100) NOT NULL UNIQUE,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_by VARCHAR(255) NOT NULL DEFAULT 'System',
+    updated_by VARCHAR(255) NOT NULL DEFAULT 'System',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS item (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     item_name VARCHAR(128) NOT NULL UNIQUE,
@@ -117,6 +127,8 @@ CREATE TABLE IF NOT EXISTS order_entry (
     due_paid DECIMAL(10,2) DEFAULT 0,
     cashCredit DECIMAL(10,2) DEFAULT 0,
     bankCredit DECIMAL(10,2) DEFAULT 0,
+    need_to_collect_cash TINYINT(1) NOT NULL DEFAULT 0,
+    is_collected_cash_from_onsite TINYINT(1) NOT NULL DEFAULT 0,
     source VARCHAR(25) NOT NULL,
     remarks VARCHAR(255) NOT NULL DEFAULT '',
     slipNumber INT NOT NULL,
@@ -175,6 +187,11 @@ INSERT IGNORE INTO measurement_unit(unit_name, created_by, updated_by)
 VALUES
     ('Cft', 'System', 'System'),
     ('Tons', 'System', 'System');
+
+INSERT IGNORE INTO source(source_name, created_by, updated_by)
+VALUES
+    ('Plant', 'System', 'System'),
+    ('Rake', 'System', 'System');
 
 INSERT IGNORE INTO item(item_name, default_measurement_unit_id, created_by, updated_by)
 VALUES

@@ -14,6 +14,7 @@ const SearchOptions = (props) => {
     const [item, setItem] = useState("")
     const [itemOptions, setItemOptions] = useState([])
     const [accountOptions, setAccountOptions] = useState([])
+    const [sourceOptions, setSourceOptions] = useState([])
     const [searchParams, setSearchParams] = useState({})
     const [exportDisabled, setExportDisabled] = useState(true)
     const isB2B = props.mode === 'b2b';
@@ -54,9 +55,10 @@ const SearchOptions = (props) => {
     useEffect(() => {
         const loadItems = async () => {
             try {
-                const [itemsResponse, accountsResponse] = await Promise.all([
+                const [itemsResponse, accountsResponse, sourcesResponse] = await Promise.all([
                     axios.get('/data/items/catalog'),
-                    axios.get('/data/accounts')
+                    axios.get('/data/accounts'),
+                    axios.get('/data/sources')
                 ]);
                 const nextItems = (itemsResponse.data.data || [])
                     .filter((itemRow) => itemRow.isActive)
@@ -64,6 +66,10 @@ const SearchOptions = (props) => {
                     .sort((left, right) => left.localeCompare(right));
                 setItemOptions(nextItems);
                 setAccountOptions((accountsResponse.data.data || []).map((account) => account.account_name).sort((left, right) => left.localeCompare(right)));
+                setSourceOptions((sourcesResponse.data.data || [])
+                    .filter((source) => Number(source.is_active) === 1)
+                    .map((source) => source.source_name)
+                    .sort((left, right) => left.localeCompare(right)));
             } catch (error) {
                 notify('error', error.response?.data?.message || 'Unable to load item list.');
             }
@@ -253,8 +259,7 @@ const SearchOptions = (props) => {
                                 <label className="form-label" htmlFor='source'>Source:</label>
                                 <select id="source" className="form-select app-input" name="source">
                                     <option value=''></option>
-                                    <option value="Plant">Plant</option>
-                                    <option value="Rake">Rake</option>
+                                    {sourceOptions.map((sourceName) => <option key={sourceName} value={sourceName}>{sourceName}</option>)}
                                 </select>
                             </div>
                         </div>
