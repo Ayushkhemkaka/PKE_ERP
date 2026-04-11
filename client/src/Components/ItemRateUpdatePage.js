@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
 const ItemRateUpdatePage = () => {
-    const { currentUser, notify } = useAppContext();
+    const { currentUser, notify, notifyError } = useAppContext();
     const [items, setItems] = useState([]);
     const [selectedItemId, setSelectedItemId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -15,7 +15,7 @@ const ItemRateUpdatePage = () => {
             ]);
             setItems(itemsResponse.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load item rates.');
+            notifyError(error, 'Unable to load item rates.');
         } finally {
             setIsLoading(false);
         }
@@ -50,7 +50,7 @@ const ItemRateUpdatePage = () => {
             setSelectedItemId('');
             loadItems();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to update item rate.');
+            notifyError(error, 'Unable to update item rate.');
         }
     };
 

@@ -151,7 +151,7 @@ const AnalyticsSection = ({ title, subtitle, isOpen, onToggle, children }) => (
 );
 
 const AnalyticsPage = () => {
-    const { notify } = useAppContext();
+    const { notify, notifyError } = useAppContext();
     const [analytics, setAnalytics] = useState(null);
     const [accounts, setAccounts] = useState([]);
     const [items, setItems] = useState([]);
@@ -176,7 +176,7 @@ const AnalyticsPage = () => {
             const response = await axios.get('/data/analytics', { params: filters });
             setAnalytics(response.data.data);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load analytics.');
+            notifyError(error, 'Unable to load analytics.');
         }
     }, [filters, notify]);
 
@@ -185,7 +185,7 @@ const AnalyticsPage = () => {
             const response = await axios.get('/data/accounts');
             setAccounts(response.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load customer accounts.');
+            notifyError(error, 'Unable to load customer accounts.');
         }
     }, [notify]);
 
@@ -194,7 +194,7 @@ const AnalyticsPage = () => {
             const response = await axios.get('/data/items/catalog');
             setItems((response.data.data || []).filter((itemRow) => itemRow.isActive).map((itemRow) => itemRow.itemName).sort((left, right) => left.localeCompare(right)));
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load items.');
+            notifyError(error, 'Unable to load items.');
         }
     }, [notify]);
 

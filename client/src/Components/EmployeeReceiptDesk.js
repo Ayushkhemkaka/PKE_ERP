@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext.js';
 import { buildInvoiceHtml, buildPrintableOrder } from '../utils/receiptUtils.js';
 
 const EmployeeReceiptDesk = ({ publicView = false }) => {
-    const { notify } = useAppContext();
+    const { notify, notifyError } = useAppContext();
     const [receipts, setReceipts] = useState([]);
     const [selectedReceipt, setSelectedReceipt] = useState(null);
 
@@ -12,12 +12,18 @@ const EmployeeReceiptDesk = ({ publicView = false }) => {
         try {
             const response = await axios.get('/data/receipts', { params: { status: 'pending' } });
             const nextReceipts = response.data.data.map((receipt) => buildPrintableOrder(receipt));
-            setReceipts(nextReceipts);
-            setSelectedReceipt((current) => nextReceipts.find((receipt) => receipt.id === current?.id) || nextReceipts[0] || null);
+            if (publicView) {
+                const nextQueue = nextReceipts.slice(0, 1);
+                setReceipts(nextQueue);
+                setSelectedReceipt(nextQueue[0] || null);
+            } else {
+                setReceipts(nextReceipts);
+                setSelectedReceipt((current) => nextReceipts.find((receipt) => receipt.id === current?.id) || nextReceipts[0] || null);
+            }
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load generated receipts.');
+            notifyError(error, 'Unable to load generated receipts.');
         }
-    }, [notify]);
+    }, [notify, publicView]);
 
     useEffect(() => {
         loadReceipts();
@@ -51,7 +57,7 @@ const EmployeeReceiptDesk = ({ publicView = false }) => {
             window.setTimeout(() => window.location.reload(), 250);
         } catch (error) {
             printWindow.close();
-            notify('error', error.response?.data?.message || 'Unable to mark the receipt as printed.');
+            notifyError(error, 'Unable to mark the receipt as printed.');
         }
     }
 

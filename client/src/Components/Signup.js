@@ -5,7 +5,7 @@ import { useAppContext } from "../context/AppContext.js";
 
 const Singup = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { login, notify } = useAppContext();
+    const { login, notify, notifyError } = useAppContext();
     const navigate = useNavigate();
 
     const submitHandler = async (event) => {
@@ -27,7 +27,7 @@ const Singup = () => {
             notify('success', response.data.message);
             navigate('/');
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to create account right now.');
+            notifyError(error, 'Unable to create account right now.');
         } finally {
             setIsSubmitting(false);
         }

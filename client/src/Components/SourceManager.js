@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
 const SourceManager = () => {
-    const { currentUser, notify } = useAppContext();
+    const { currentUser, notify, notifyError } = useAppContext();
     const [sources, setSources] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -12,7 +12,7 @@ const SourceManager = () => {
             const response = await axios.get('/data/sources', { params: { includeInactive: true } });
             setSources(response.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load sources.');
+            notifyError(error, 'Unable to load sources.');
         } finally {
             setIsLoading(false);
         }
@@ -40,7 +40,7 @@ const SourceManager = () => {
             event.target.reset();
             loadSources();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to save source.');
+            notifyError(error, 'Unable to save source.');
         }
     };
 

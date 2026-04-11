@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext.js';
 const formatCurrency = (value) => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const OnsiteCashCollectionPage = () => {
-    const { currentUser, notify } = useAppContext();
+    const { currentUser, notify, notifyError } = useAppContext();
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCollecting, setIsCollecting] = useState(false);
@@ -30,7 +30,7 @@ const OnsiteCashCollectionPage = () => {
                 return next;
             });
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load onsite cash collection orders.');
+            notifyError(error, 'Unable to load onsite cash collection orders.');
         } finally {
             setIsLoading(false);
         }
@@ -51,7 +51,7 @@ const OnsiteCashCollectionPage = () => {
             notify('success', response.data.message);
             await loadOrders();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to mark onsite cash as collected.');
+            notifyError(error, 'Unable to mark onsite cash as collected.');
         } finally {
             setIsCollecting(false);
         }

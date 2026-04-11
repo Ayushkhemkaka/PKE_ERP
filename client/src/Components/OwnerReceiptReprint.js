@@ -13,7 +13,7 @@ const defaultFilters = {
 };
 
 const OwnerReceiptReprint = () => {
-    const { currentUser, notify } = useAppContext();
+    const { notify, notifyError } = useAppContext();
     const [receipts, setReceipts] = useState([]);
     const [selectedReceipt, setSelectedReceipt] = useState(null);
     const [selectedReceiptIds, setSelectedReceiptIds] = useState([]);
@@ -29,7 +29,7 @@ const OwnerReceiptReprint = () => {
             setSelectedReceipt((current) => nextReceipts.find((receipt) => receipt.id === current?.id) || nextReceipts[0] || null);
             setSelectedReceiptIds((current) => current.filter((id) => nextReceipts.some((receipt) => receipt.id === id)));
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load receipt history.');
+            notifyError(error, 'Unable to load receipt history.');
         }
     }, [notify]);
 
@@ -42,7 +42,7 @@ const OwnerReceiptReprint = () => {
             setItemOptions((itemsResponse.data.data || []).filter((item) => item.isActive).map((item) => item.itemName).sort((left, right) => left.localeCompare(right)));
             setAccountOptions((accountsResponse.data.data || []).map((account) => account.account_name).sort((left, right) => left.localeCompare(right)));
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load receipt filters.');
+            notifyError(error, 'Unable to load receipt filters.');
         }
     }, [notify]);
 
@@ -86,11 +86,6 @@ const OwnerReceiptReprint = () => {
 
         try {
             const receiptList = Array.isArray(targetReceipts) ? targetReceipts : [targetReceipts];
-            await Promise.all(receiptList.map((receipt) => axios.post('/data/receipts/print', {
-                id: receipt.id,
-                printedBy: currentUser?.email || currentUser?.fullName || 'Owner',
-                printedByUserId: currentUser?.id || null
-            })));
             printWindow.document.write(
                 receiptList.length > 1
                     ? buildMultiInvoiceHtml(receiptList, 'Owner Receipt Batch Print')
@@ -104,7 +99,7 @@ const OwnerReceiptReprint = () => {
             window.setTimeout(() => window.location.reload(), 250);
         } catch (error) {
             printWindow.close();
-            notify('error', error.response?.data?.message || 'Unable to print this receipt.');
+            notifyError(error, 'Unable to print this receipt.');
         }
     }
 

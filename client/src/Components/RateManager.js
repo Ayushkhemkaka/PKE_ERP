@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
 const RateManager = () => {
-    const { currentUser, notify } = useAppContext();
+    const { currentUser, notify, notifyError } = useAppContext();
     const [items, setItems] = useState([]);
     const [measurementUnits, setMeasurementUnits] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -17,7 +17,7 @@ const RateManager = () => {
             setItems(itemsResponse.data.data || []);
             setMeasurementUnits(unitsResponse.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load item setup.');
+            notifyError(error, 'Unable to load item setup.');
         } finally {
             setIsLoading(false);
         }
@@ -50,7 +50,7 @@ const RateManager = () => {
             event.target.reset();
             loadData();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to save the item.');
+            notifyError(error, 'Unable to save the item.');
         }
     }
 

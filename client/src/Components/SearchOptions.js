@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext.js';
 import * as XLSX from 'xlsx';
 
 const SearchOptions = (props) => {
-    const { notify, currentUser } = useAppContext();
+    const { notify, notifyError, currentUser } = useAppContext();
     const [columnList, setColumnList] = useState(() => (
         props.mode === 'b2b'
             ? ["MeasurementUnit", "gross", "tare", "net", "remarks", "PaymentStatus", "DueAmount", "customerAccountName"]
@@ -71,12 +71,12 @@ const SearchOptions = (props) => {
                     .map((source) => source.source_name)
                     .sort((left, right) => left.localeCompare(right)));
             } catch (error) {
-                notify('error', error.response?.data?.message || 'Unable to load item list.');
+                notifyError(error, 'Unable to load item list.');
             }
         };
 
         loadItems();
-    }, [notify]);
+    }, [notifyError]);
 
     const SearchColumnChangeHandler = (updatedCloumnList) => {
         console.log(updatedCloumnList)
@@ -115,7 +115,7 @@ const SearchOptions = (props) => {
                 setExportDisabled(true)
                 notify('success', 'Excel file prepared successfully.')
             }).catch(err => {
-                notify('error', err.response?.data?.message || 'Unable to export orders.')
+                notifyError(err, 'Unable to export orders.')
             });
         }
         exportData();
@@ -147,7 +147,7 @@ const SearchOptions = (props) => {
                 setExportDisabled(false)
                 notify('success', res.data.message)
             }).catch(err => {
-                notify('error', err.response?.data?.message || 'Unable to search orders.')
+                notifyError(err, 'Unable to search orders.')
             });
         }
         fetchData();
@@ -174,7 +174,7 @@ const SearchOptions = (props) => {
 
             notify('success', `${response.data.message} Imported ${response.data.data.count} rows.`);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to import the selected Excel file.');
+            notifyError(error, 'Unable to import the selected Excel file.');
         } finally {
             event.target.value = '';
         }

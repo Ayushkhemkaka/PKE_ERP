@@ -10,7 +10,7 @@ const formatHistoryValue = (value) => {
 };
 
 const InvoiceHistoryPage = ({ mode = 'normal' }) => {
-    const { notify } = useAppContext();
+    const { notifyError } = useAppContext();
     const [searchResults, setSearchResults] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [historyData, setHistoryData] = useState({ changes: [], workLog: [] });
@@ -29,12 +29,12 @@ const InvoiceHistoryPage = ({ mode = 'normal' }) => {
                 setItemOptions((itemsResponse.data.data || []).filter((itemRow) => itemRow.isActive).map((itemRow) => itemRow.itemName).sort((left, right) => left.localeCompare(right)));
                 setAccountOptions((accountsResponse.data.data || []).map((account) => account.account_name).sort((left, right) => left.localeCompare(right)));
             } catch (error) {
-                notify('error', error.response?.data?.message || 'Unable to load history filters.');
+                notifyError(error, 'Unable to load history filters.');
             }
         };
 
         loadOptions();
-    }, [notify]);
+    }, [notifyError]);
 
     const loadHistory = async (order) => {
         setSelectedOrder(order);
@@ -44,7 +44,7 @@ const InvoiceHistoryPage = ({ mode = 'normal' }) => {
             });
             setHistoryData(response.data.data || { changes: [], workLog: [] });
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load invoice history.');
+            notifyError(error, 'Unable to load invoice history.');
         }
     };
 
@@ -68,7 +68,7 @@ const InvoiceHistoryPage = ({ mode = 'normal' }) => {
             setSelectedOrder(null);
             setHistoryData({ changes: [], workLog: [] });
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to search invoices.');
+            notifyError(error, 'Unable to search invoices.');
         }
     };
 

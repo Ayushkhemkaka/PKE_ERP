@@ -6,7 +6,7 @@ import { useAppContext } from '../context/AppContext.js';
 const formatCurrency = (value) => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const DueAccountsPage = ({ fixedMode = '' }) => {
-    const { notify, currentUser } = useAppContext();
+    const { notify, notifyError, currentUser } = useAppContext();
     const location = useLocation();
     const queryMode = useMemo(() => {
         if (fixedMode === 'normal' || fixedMode === 'b2b') {
@@ -37,11 +37,11 @@ const DueAccountsPage = ({ fixedMode = '' }) => {
             setAccounts(response.data.data.accounts || []);
             setOrders(response.data.data.orders || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load due accounts.');
+            notifyError(error, 'Unable to load due accounts.');
         } finally {
             setIsLoading(false);
         }
-    }, [notify]);
+    }, [notifyError]);
 
     useEffect(() => {
         setMode(queryMode);
@@ -80,7 +80,7 @@ const DueAccountsPage = ({ fixedMode = '' }) => {
             notify('success', response.data.message);
             loadDueAccounts(mode, selectedAccountId, invoiceId);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to mark the order as paid.');
+            notifyError(error, 'Unable to mark the order as paid.');
         } finally {
             setIsUpdatingId('');
         }

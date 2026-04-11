@@ -5,7 +5,7 @@ import { useAppContext } from "../context/AppContext.js";
 
 const Login = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { login, notify } = useAppContext();
+    const { login, notify, notifyError } = useAppContext();
     const navigate = useNavigate();
     const demoCredentials = {
         email: 'test@pke.local',
@@ -34,7 +34,7 @@ const Login = () => {
                 navigate('/orderentry');
                 return;
             }
-            notify('error', error.response?.data?.message || 'Unable to log in right now.');
+            notifyError(error, 'Unable to log in right now.');
         } finally {
             setIsSubmitting(false);
         }

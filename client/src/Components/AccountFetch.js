@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext.js';
 const formatCurrency = (value) => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const AccountFetch = () => {
-    const { notify } = useAppContext();
+    const { notifyError } = useAppContext();
     const [accounts, setAccounts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -14,11 +14,11 @@ const AccountFetch = () => {
             const response = await axios.get('/data/account-summary');
             setAccounts(response.data.data);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load account summaries.');
+            notifyError(error, 'Unable to load account summaries.');
         } finally {
             setIsLoading(false);
         }
-    }, [notify]);
+    }, [notifyError]);
 
     useEffect(() => {
         loadAccounts();

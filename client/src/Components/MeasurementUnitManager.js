@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
 const MeasurementUnitManager = () => {
-    const { currentUser, notify } = useAppContext();
+    const { currentUser, notify, notifyError } = useAppContext();
     const [units, setUnits] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -12,7 +12,7 @@ const MeasurementUnitManager = () => {
             const response = await axios.get('/data/measurement-units', { params: { includeInactive: true } });
             setUnits(response.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load measurement units.');
+            notifyError(error, 'Unable to load measurement units.');
         } finally {
             setIsLoading(false);
         }
@@ -40,7 +40,7 @@ const MeasurementUnitManager = () => {
             event.target.reset();
             loadUnits();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to save measurement unit.');
+            notifyError(error, 'Unable to save measurement unit.');
         }
     };
 

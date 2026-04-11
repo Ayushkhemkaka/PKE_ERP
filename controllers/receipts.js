@@ -87,6 +87,7 @@ const markReceiptPrinted = async (req, res) => {
     const id = reqBody.id;
     const printedBy = reqBody.printedBy || 'System';
     const printedByUserId = await resolvePrintedByUserId(printedBy, reqBody.printedByUserId || null);
+    const shouldMarkPrinted = printedBy === 'Receipt Desk';
 
     if (!id) {
         sendError(res, "Order id is required.");
@@ -111,27 +112,29 @@ const markReceiptPrinted = async (req, res) => {
         }
 
         const order = entryRows[0];
-        await client.execute(
-            `UPDATE order_entry
-             SET is_printed = 1, printed_by = ?, lastUpdatedBy = ?
-             WHERE id = ?`,
-            [printedBy, printedBy, id]
-        );
-
-        if (!Number(order.is_printed)) {
+        if (shouldMarkPrinted) {
             await client.execute(
-                `INSERT INTO history(entryid, field, oldvalue, newvalue, createdby)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [id, 'is_printed', 'No', 'Yes', printedBy]
+                `UPDATE order_entry
+                 SET is_printed = 1, printed_by = ?, lastUpdatedBy = ?
+                 WHERE id = ?`,
+                [printedBy, printedBy, id]
             );
-        }
 
-        if (String(order.printed_by ?? '') !== String(printedBy ?? '')) {
-            await client.execute(
-                `INSERT INTO history(entryid, field, oldvalue, newvalue, createdby)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [id, 'printed_by', String(order.printed_by ?? ''), String(printedBy ?? ''), printedBy]
-            );
+            if (!Number(order.is_printed)) {
+                await client.execute(
+                    `INSERT INTO history(entryid, field, oldvalue, newvalue, createdby)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [id, 'is_printed', 'No', 'Yes', printedBy]
+                );
+            }
+
+            if (String(order.printed_by ?? '') !== String(printedBy ?? '')) {
+                await client.execute(
+                    `INSERT INTO history(entryid, field, oldvalue, newvalue, createdby)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [id, 'printed_by', String(order.printed_by ?? ''), String(printedBy ?? ''), printedBy]
+                );
+            }
         }
 
         await client.commit();
@@ -145,10 +148,16 @@ const markReceiptPrinted = async (req, res) => {
             entityId: id,
             details: {
                 fromPrintedState: Number(order.is_printed),
-                toPrintedState: 1,
-                printedBy
+                toPrintedState: shouldMarkPrinted ? 1 : Number(order.is_printed),
+                printedBy,
+                markedPrinted: shouldMarkPrinted
             }
         });
+
+        if (!shouldMarkPrinted) {
+            sendSuccess(res, "Receipt printed without updating the print status.");
+            return;
+        }
 
         sendSuccess(res, Number(order.is_printed) ? "Receipt was already marked as printed." : "Receipt marked as printed.");
     } catch (error) {

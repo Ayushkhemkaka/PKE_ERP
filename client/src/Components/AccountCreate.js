@@ -11,7 +11,7 @@ const initialState = {
 };
 
 const AccountCreate = () => {
-    const { currentUser, notify } = useAppContext();
+    const { currentUser, notify, notifyError } = useAppContext();
     const [formState, setFormState] = useState(initialState);
 
     const submitHandler = async (event) => {
@@ -26,7 +26,7 @@ const AccountCreate = () => {
             notify('success', response.data.message);
             setFormState(initialState);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to create the customer account.');
+            notifyError(error, 'Unable to create the customer account.');
         }
     }
 

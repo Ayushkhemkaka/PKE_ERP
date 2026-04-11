@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import FinanceDetails from './FinanceDetails.js';
 import { useAppContext } from '../context/AppContext.js';
 import { buildInvoiceHtml, buildPrintableOrder, formatCurrency } from '../utils/receiptUtils.js';
+import { getErrorMessage } from '../utils/errorUtils.js';
 
 const OrderEntry = ({ mode = 'standard' }) => {
     const { currentUser, notify } = useAppContext();
@@ -29,7 +30,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
             setBookNumber(response.data.data.bookNumber);
             setSlipNumber(response.data.data.slipNumber);
         } catch (error) {
-            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load the next book and serial number at the moment. Please try again.' });
+            setLocalNotice({ type: 'error', message: getErrorMessage(error, 'Unable to load the next book and serial number at the moment. Please try again.') });
         }
     }, [])
 
@@ -38,7 +39,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
             const response = await axios.get('/data/items/catalog');
             setItemCatalog(response.data.data || []);
         } catch (error) {
-            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load the item list right now. Please refresh and try again.' });
+            setLocalNotice({ type: 'error', message: getErrorMessage(error, 'Unable to load the item list right now. Please refresh and try again.') });
         }
     }, [])
 
@@ -51,7 +52,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
             const response = await axios.get('/data/accounts');
             setCustomerAccounts(response.data.data);
         } catch (error) {
-            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load customer accounts right now. Please try again.' });
+            setLocalNotice({ type: 'error', message: getErrorMessage(error, 'Unable to load customer accounts right now. Please try again.') });
         }
     }, [isB2B])
 
@@ -60,7 +61,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
             const response = await axios.get('/data/sources');
             setSources(response.data.data || []);
         } catch (error) {
-            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'Unable to load sources right now. Please try again.' });
+            setLocalNotice({ type: 'error', message: getErrorMessage(error, 'Unable to load sources right now. Please try again.') });
         }
     }, [])
 
@@ -159,11 +160,6 @@ const OrderEntry = ({ mode = 'standard' }) => {
         }
 
         try {
-            await axios.post('/data/receipts/print', {
-                id: order.id,
-                printedBy: currentUser?.fullName || currentUser?.email || 'System',
-                printedByUserId: currentUser?.id || null
-            });
             printWindow.document.write(buildInvoiceHtml(order, isB2B ? 'B2B order print view' : 'Order entry print view'));
             printWindow.document.close()
             printWindow.focus()
@@ -171,7 +167,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
             setLastSubmittedOrder((prev) => prev ? { ...prev, isPrinted: true } : prev)
         } catch (error) {
             printWindow.close()
-            setLocalNotice({ type: 'error', message: error.response?.data?.message || 'The print status could not be updated. Please try again.' })
+            setLocalNotice({ type: 'error', message: getErrorMessage(error, 'The print status could not be updated. Please try again.') })
         }
     }
 
@@ -241,7 +237,7 @@ const OrderEntry = ({ mode = 'standard' }) => {
                 event.target.remarks.value = ''
                 fetchNextSequence(date)
             }).catch(err => {
-                setLocalNotice({ type: 'error', message: err.response?.data?.message || 'The order could not be saved. Please review the form and try again.' })
+                setLocalNotice({ type: 'error', message: getErrorMessage(err, 'The order could not be saved. Please review the form and try again.') })
             });
 
         }

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAppContext } from '../context/AppContext.js';
 
 const ItemStatusManager = () => {
-    const { currentUser, notify } = useAppContext();
+    const { currentUser, notify, notifyError } = useAppContext();
     const [items, setItems] = useState([]);
     const [sources, setSources] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -15,11 +15,11 @@ const ItemStatusManager = () => {
             const sourceResponse = await axios.get('/data/sources', { params: { includeInactive: true } });
             setSources(sourceResponse.data.data || []);
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to load items.');
+            notifyError(error, 'Unable to load items.');
         } finally {
             setIsLoading(false);
         }
-    }, [notify]);
+    }, [notifyError]);
 
     useEffect(() => {
         loadItems();
@@ -36,7 +36,7 @@ const ItemStatusManager = () => {
             notify('success', response.data.message);
             loadItems();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to update item status.');
+            notifyError(error, 'Unable to update item status.');
         }
     };
 
@@ -51,7 +51,7 @@ const ItemStatusManager = () => {
             notify('success', response.data.message);
             loadItems();
         } catch (error) {
-            notify('error', error.response?.data?.message || 'Unable to update source status.');
+            notifyError(error, 'Unable to update source status.');
         }
     };
 

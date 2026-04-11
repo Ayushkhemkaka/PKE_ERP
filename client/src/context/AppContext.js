@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { getErrorMessage } from '../utils/errorUtils.js';
 
 const AppContext = createContext(null);
 const USER_STORAGE_KEY = 'pke_erp_user';
@@ -102,6 +103,10 @@ const AppProvider = ({ children }) => {
         setNotification({ type, message });
     };
 
+    const notifyError = (error, fallbackMessage) => {
+        setNotification({ type: 'error', message: getErrorMessage(error, fallbackMessage) });
+    };
+
     const clearNotification = () => setNotification(null);
 
     const login = (user) => {
@@ -119,6 +124,7 @@ const AppProvider = ({ children }) => {
     const value = useMemo(() => ({
         notification,
         notify,
+        notifyError,
         clearNotification,
         currentUser,
         isAuthReady,

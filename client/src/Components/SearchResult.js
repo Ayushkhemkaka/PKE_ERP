@@ -12,7 +12,7 @@ const formatHistoryValue = (value) => {
 };
 
 const SearchResult = (props) => {
-    const { notify } = useAppContext();
+    const { notify, notifyError } = useAppContext();
     const [selectedData, setSelectedData] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [initialData, setInitialData] = useState({});
@@ -86,7 +86,7 @@ const SearchResult = (props) => {
                 bankCredit: order.bankcredit
             });
         }).catch((err) => {
-            notify('error', err.response?.data?.message || 'Data for this order was not found.');
+            notifyError(err, 'Data for this order was not found.');
         });
     };
 
@@ -105,7 +105,7 @@ const SearchResult = (props) => {
             });
             setHistoryData(res.data.data);
         } catch (err) {
-            notify('error', err.response?.data?.message || 'Unable to load order history.');
+            notifyError(err, 'Unable to load order history.');
         }
     };
     const updateSuccessfulHandler = async () => {
