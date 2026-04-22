@@ -3,8 +3,28 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext.js";
 
+const meetsStrengthPolicy = (password, email = '') => {
+    const candidate = String(password || '');
+    if (candidate.length < 8) return false;
+    if (!/[a-z]/.test(candidate)) return false;
+    if (!/[A-Z]/.test(candidate)) return false;
+    if (!/\d/.test(candidate)) return false;
+    if (!/[^A-Za-z0-9]/.test(candidate)) return false;
+
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (normalizedEmail) {
+        const localPart = normalizedEmail.split('@')[0];
+        const lowerCandidate = candidate.toLowerCase();
+        if (localPart && localPart.length >= 3 && lowerCandidate.includes(localPart)) return false;
+        if (lowerCandidate.includes(normalizedEmail)) return false;
+    }
+
+    return true;
+};
+
 const ChangePassword = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [newPasswordValue, setNewPasswordValue] = useState('');
     const { currentUser, logout, notify, notifyError } = useAppContext();
     const navigate = useNavigate();
 
@@ -25,6 +45,11 @@ const ChangePassword = () => {
 
         if (newPassword !== confirmPassword) {
             notify('error', 'Passwords do not match.');
+            return;
+        }
+
+        if (!meetsStrengthPolicy(newPassword, currentUser.email)) {
+            notify('error', 'Password must be 8+ chars and include uppercase, lowercase, a number, and a special character. Avoid using your email.');
             return;
         }
 
@@ -84,7 +109,20 @@ const ChangePassword = () => {
                 </div>
                 <div className="app-field mb-3">
                     <label className="form-label" htmlFor="newPassword">New Password</label>
-                    <input id="newPassword" name="newPassword" type="password" className="form-control app-input" required minLength="8" placeholder="At least 8 characters" />
+                    <input
+                        id="newPassword"
+                        name="newPassword"
+                        type="password"
+                        className="form-control app-input"
+                        required
+                        minLength="8"
+                        placeholder="At least 8 characters"
+                        value={newPasswordValue}
+                        onChange={(event) => setNewPasswordValue(event.target.value)}
+                    />
+                    <small className="form-text text-muted d-block mt-1">
+                        Must include uppercase, lowercase, a number, and a special character. Avoid using your email.
+                    </small>
                 </div>
                 <div className="app-field mb-3">
                     <label className="form-label" htmlFor="confirmNewPassword">Confirm New Password</label>

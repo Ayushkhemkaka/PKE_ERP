@@ -15,8 +15,9 @@ const Login = () => {
 
         try {
             const response = await axios.post('/auth/login', { email, password });
-            const user = response.data.data;
-            login(user);
+            const session = response.data.data;
+            const user = session?.user;
+            login(session);
             notify('success', response.data.message);
             navigate(user?.mustChangePassword ? '/change-password' : '/orderentry');
         } catch (error) {

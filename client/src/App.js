@@ -76,7 +76,7 @@ function AppLayout() {
             <Route path='/b2b/history' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <InvoiceHistoryPage mode="b2b" />) : <Navigate to="/login" replace />} />
             <Route path='/analytics' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <AnalyticsPage />) : <Navigate to="/login" replace />} />
             <Route path='/employee-receipts' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <EmployeeReceiptDesk />) : <Navigate to="/login" replace />} />
-            <Route path='/receipt-desk' element={<EmployeeReceiptDesk publicView={true} />} />
+            <Route path='/receipt-desk' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <EmployeeReceiptDesk publicView={true} />) : <Navigate to="/login" replace />} />
             <Route path='/owner-reprints' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <OwnerReceiptReprint />) : <Navigate to="/login" replace />} />
             <Route path='*' element={<Navigate to="/" replace />} />
           </Routes>

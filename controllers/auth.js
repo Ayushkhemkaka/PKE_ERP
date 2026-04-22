@@ -1,10 +1,14 @@
 import { query } from "../configs/dbConn.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
+import { validatePasswordStrength } from "../utils/passwordPolicy.js";
 import { logUserWork } from "../utils/workTracking.js";
+import { createAuthToken } from "../utils/authToken.js";
+import { getRequestIp, shouldRateLimit } from "../utils/rateLimit.js";
+import validator from "validator";
 
 const normalizeEmail = (email = "") => email.trim().toLowerCase();
-const BASE_PASSWORD = process.env.DEFAULT_USER_PASSWORD;
+const BASE_PASSWORD = process.env.DEFAULT_USER_PASSWORD || 'Pke@1234';
 
 const sanitizeUser = (user) => ({
     id: user.id,
@@ -14,11 +18,26 @@ const sanitizeUser = (user) => ({
 });
 
 const signup = async (req, res) => {
+    if (process.env.DISABLE_PUBLIC_SIGNUP === 'true') {
+        sendError(res, "Sign up is disabled.", 403);
+        return;
+    }
+
     const { fullName, email } = req.body || {};
     const normalizedEmail = normalizeEmail(email);
 
     if (!fullName?.trim() || !normalizedEmail) {
         sendError(res, "Full name and email are required.");
+        return;
+    }
+
+    if (!validator.isEmail(normalizedEmail)) {
+        sendError(res, "Please enter a valid email address.");
+        return;
+    }
+
+    if (String(fullName).trim().length > 255) {
+        sendError(res, "Full name is too long.");
         return;
     }
 
@@ -64,6 +83,15 @@ const login = async (req, res) => {
     }
 
     try {
+        const ip = getRequestIp(req);
+        const limiterKey = `login:${ip}:${normalizedEmail}`;
+        const limiter = shouldRateLimit(limiterKey, { maxAttempts: 25, windowMs: 10 * 60 * 1000 });
+        if (limiter.limited) {
+            res.setHeader('Retry-After', String(limiter.retryAfterSeconds));
+            sendError(res, "Too many login attempts. Please try again later.", 429);
+            return;
+        }
+
         const result = await query(
             'SELECT id, full_name, email, password_hash, must_change_password FROM app_user WHERE email = ?',
             [normalizedEmail]
@@ -112,9 +140,28 @@ const login = async (req, res) => {
             entityId: String(user.id),
             details: mustChangePassword ? { mustChangePassword: true } : undefined
         });
+
+        let token = null;
+        try {
+            token = createAuthToken({
+                sub: String(user.id),
+                id: user.id,
+                email: user.email,
+                fullName: user.full_name,
+                mustChangePassword
+            });
+        } catch (error) {
+            console.error('Token creation failed', error);
+            sendError(res, "Server authentication misconfigured.", 500);
+            return;
+        }
+
         sendSuccess(res, "Login successful.", {
-            ...sanitizeUser({ ...user, must_change_password: mustChangePassword }),
-            mustChangePassword
+            user: {
+                ...sanitizeUser({ ...user, must_change_password: mustChangePassword }),
+                mustChangePassword
+            },
+            token
         });
     } catch (error) {
         console.error('Login failed', error);
@@ -131,8 +178,14 @@ const changePassword = async (req, res) => {
         return;
     }
 
-    if (newPassword.length < 8) {
-        sendError(res, "New password must be at least 8 characters long.");
+    if (!validator.isEmail(normalizedEmail)) {
+        sendError(res, "Please enter a valid email address.");
+        return;
+    }
+
+    const strength = validatePasswordStrength(newPassword, { email: normalizedEmail });
+    if (!strength.ok) {
+        sendError(res, strength.message);
         return;
     }
 
@@ -142,6 +195,15 @@ const changePassword = async (req, res) => {
     }
 
     try {
+        const ip = getRequestIp(req);
+        const limiterKey = `change_password:${ip}:${normalizedEmail}`;
+        const limiter = shouldRateLimit(limiterKey, { maxAttempts: 10, windowMs: 10 * 60 * 1000 });
+        if (limiter.limited) {
+            res.setHeader('Retry-After', String(limiter.retryAfterSeconds));
+            sendError(res, "Too many attempts. Please try again later.", 429);
+            return;
+        }
+
         const result = await query(
             'SELECT id, full_name, email, password_hash, must_change_password FROM app_user WHERE email = ?',
             [normalizedEmail]

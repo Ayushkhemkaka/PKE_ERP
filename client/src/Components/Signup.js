@@ -15,7 +15,7 @@ const Singup = () => {
         setIsSubmitting(true);
         try {
             const response = await axios.post('/auth/signup', { fullName, email });
-            notify('success', `${response.data.message} Temporary password: Pke@1234`);
+            notify('success', response.data.message);
             navigate('/login');
         } catch (error) {
             notifyError(error, 'Unable to create account right now.');

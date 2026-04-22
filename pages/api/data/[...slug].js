@@ -12,6 +12,17 @@ import { listReceipts, markReceiptPrinted } from '../../../controllers/receipts.
 import { listPendingOnsiteCash, markCollectedOnsiteCash } from '../../../controllers/onsiteCash.js';
 import { createSource, listSources, updateSourceStatus } from '../../../controllers/sources.js';
 import { update } from '../../../controllers/update.js';
+import { requireAuth } from '../../../utils/requireAuth.js';
+import { enforceOrigin } from '../../../utils/originPolicy.js';
+import { getRequestIp, shouldRateLimit } from '../../../utils/rateLimit.js';
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb'
+    }
+  }
+};
 
 const handlers = {
   find: {
@@ -99,6 +110,16 @@ const handlers = {
 };
 
 export default async function handler(req, res) {
+  res.setTimeout(15000, () => {
+    if (!res.headersSent) {
+      res.status(504).json({ success: false, message: 'Request timed out.' });
+    }
+  });
+
+  if (!enforceOrigin(req, res)) {
+    return;
+  }
+
   const slugParts = Array.isArray(req.query.slug) ? req.query.slug : [req.query.slug].filter(Boolean);
   const routeKey = slugParts.join('/');
   const routeHandlers = handlers[routeKey];
@@ -111,6 +132,20 @@ export default async function handler(req, res) {
   const methodHandler = routeHandlers[req.method];
   if (!methodHandler) {
     res.status(405).json({ success: false, message: `Method ${req.method} not allowed.` });
+    return;
+  }
+
+  const auth = requireAuth(req, res);
+  if (!auth.ok) {
+    return;
+  }
+
+  const ip = getRequestIp(req);
+  const limiterKey = `data:${ip}:${routeKey}:${req.method}`;
+  const limiter = shouldRateLimit(limiterKey, { maxAttempts: 900, windowMs: 10 * 60 * 1000 });
+  if (limiter.limited) {
+    res.setHeader('Retry-After', String(limiter.retryAfterSeconds));
+    res.status(429).json({ success: false, message: 'Too many requests. Please try again later.' });
     return;
   }
 

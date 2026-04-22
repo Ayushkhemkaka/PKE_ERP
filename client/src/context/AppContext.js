@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import { getErrorMessage } from '../utils/errorUtils.js';
 
 const AppContext = createContext(null);
@@ -9,6 +10,7 @@ const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'];
 const AppProvider = ({ children }) => {
     const [notification, setNotification] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
+    const [authToken, setAuthToken] = useState(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
     const timeoutRef = useRef(null);
 
@@ -23,8 +25,9 @@ const AppProvider = ({ children }) => {
         window.localStorage.removeItem(USER_STORAGE_KEY);
     };
 
-    const createSessionPayload = (user) => ({
+    const createSessionPayload = (user, token) => ({
         user,
+        token,
         lastActivityAt: Date.now()
     });
 
@@ -49,7 +52,7 @@ const AppProvider = ({ children }) => {
             return;
         }
 
-        persistSession(createSessionPayload(currentUser));
+        persistSession(createSessionPayload(currentUser, authToken));
         scheduleSessionTimeout();
     };
 
@@ -68,11 +71,43 @@ const AppProvider = ({ children }) => {
                 }
 
                 setCurrentUser(parsedSession.user);
+                setAuthToken(parsedSession.token || null);
             } catch (error) {
                 clearStoredSession();
             }
         }
         setIsAuthReady(true);
+    }, []);
+
+    useEffect(() => {
+        if (authToken) {
+            axios.defaults.headers.common.Authorization = `Bearer ${authToken}`;
+        } else {
+            delete axios.defaults.headers.common.Authorization;
+        }
+    }, [authToken]);
+
+    useEffect(() => {
+        const interceptorId = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                const status = error?.response?.status;
+                const url = String(error?.config?.url || '');
+                if (status === 401 && !url.includes('/auth/login')) {
+                    setCurrentUser(null);
+                    setAuthToken(null);
+                    clearSessionTimer();
+                    clearStoredSession();
+                    setNotification({
+                        type: 'error',
+                        message: 'Your session expired. Please log in again.'
+                    });
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => axios.interceptors.response.eject(interceptorId);
     }, []);
 
     useEffect(() => {
@@ -109,14 +144,18 @@ const AppProvider = ({ children }) => {
 
     const clearNotification = () => setNotification(null);
 
-    const login = (user) => {
-        setCurrentUser(user);
-        persistSession(createSessionPayload(user));
+    const login = (payload) => {
+        const nextUser = payload?.user ? payload.user : payload;
+        const nextToken = payload?.token ?? null;
+        setCurrentUser(nextUser);
+        setAuthToken(nextToken);
+        persistSession(createSessionPayload(nextUser, nextToken));
         scheduleSessionTimeout();
     };
 
     const logout = () => {
         setCurrentUser(null);
+        setAuthToken(null);
         clearSessionTimer();
         clearStoredSession();
     };
@@ -127,10 +166,11 @@ const AppProvider = ({ children }) => {
         notifyError,
         clearNotification,
         currentUser,
+        authToken,
         isAuthReady,
         login,
         logout
-    }), [notification, currentUser, isAuthReady]);
+    }), [notification, currentUser, authToken, isAuthReady]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
