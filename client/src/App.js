@@ -78,6 +78,7 @@ function AppLayout() {
             <Route path='/employee-receipts' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <EmployeeReceiptDesk />) : <Navigate to="/login" replace />} />
             <Route path='/receipt-desk' element={<EmployeeReceiptDesk publicView={true} />} />
             <Route path='/owner-reprints' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <OwnerReceiptReprint />) : <Navigate to="/login" replace />} />
+            <Route path='*' element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </main>

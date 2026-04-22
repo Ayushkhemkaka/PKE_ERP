@@ -4,7 +4,7 @@ import { hashPassword, verifyPassword } from "../utils/password.js";
 import { logUserWork } from "../utils/workTracking.js";
 
 const normalizeEmail = (email = "") => email.trim().toLowerCase();
-const BASE_PASSWORD = process.env.DEFAULT_USER_PASSWORD || 'Pke@1234';
+const BASE_PASSWORD = process.env.DEFAULT_USER_PASSWORD;
 
 const sanitizeUser = (user) => ({
     id: user.id,
