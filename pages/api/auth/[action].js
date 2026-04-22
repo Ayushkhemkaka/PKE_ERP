@@ -1,4 +1,4 @@
-import { login, signup } from '../../../controllers/auth.js';
+import { changePassword, login, signup } from '../../../controllers/auth.js';
 
 const handlers = {
   login: {
@@ -6,6 +6,9 @@ const handlers = {
   },
   signup: {
     POST: signup
+  },
+  'change-password': {
+    POST: changePassword
   }
 };
 

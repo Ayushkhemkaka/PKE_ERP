@@ -1,43 +1,75 @@
-import { query } from '../configs/dbConn.js';
+import { getConnection, query } from '../configs/dbConn.js';
 import fs from 'fs';
 
 const schemaFile = new URL('./schema.sql', import.meta.url);
 
+const splitSqlStatements = (sql) => {
+    const statements = [];
+    let current = '';
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+
+    for (let index = 0; index < sql.length; index += 1) {
+        const char = sql[index];
+        const prev = sql[index - 1];
+
+        if (!inDoubleQuote && char === "'" && prev !== '\\') {
+            inSingleQuote = !inSingleQuote;
+        } else if (!inSingleQuote && char === '"' && prev !== '\\') {
+            inDoubleQuote = !inDoubleQuote;
+        }
+
+        if (!inSingleQuote && !inDoubleQuote && char === ';') {
+            const trimmed = current.trim();
+            if (trimmed) {
+                statements.push(trimmed);
+            }
+            current = '';
+            continue;
+        }
+
+        current += char;
+    }
+
+    const trimmed = current.trim();
+    if (trimmed) {
+        statements.push(trimmed);
+    }
+
+    return statements;
+};
+
 const runSqlFile = async (fileUrl) => {
     const sql = fs.readFileSync(fileUrl, 'utf8');
-    const statements = sql
-        .split(/;\s*\n/)
-        .map((statement) => statement.trim())
-        .filter(Boolean);
+    const statements = splitSqlStatements(sql);
 
     for (const statement of statements) {
         await query(statement);
     }
 };
 
-const tables = [
-    'items_history',
-    'item_rate',
-    'item',
-    'measurement_unit',
-    'history',
-    'user_work_log',
-    'order_entry',
-    'b2b_order_entry',
-    'normal_order_entry',
-    'entry',
-    'customer_account',
-    'app_user'
-];
+const connection = await getConnection();
 
-await query('SET FOREIGN_KEY_CHECKS = 0');
+try {
+    await connection.query('SET FOREIGN_KEY_CHECKS = 0');
 
-for (const table of tables) {
-    await query(`DROP TABLE IF EXISTS ${table}`);
-    console.log(`Dropped ${table}`);
+    const [tables] = await connection.query(
+        `SELECT table_name AS tableName
+         FROM information_schema.tables
+         WHERE table_schema = DATABASE()
+           AND table_type = 'BASE TABLE'`
+    );
+
+    for (const row of tables) {
+        const tableName = row.tableName;
+        await connection.query(`DROP TABLE IF EXISTS \`${tableName}\``);
+        console.log(`Dropped ${tableName}`);
+    }
+
+    await connection.query('SET FOREIGN_KEY_CHECKS = 1');
+} finally {
+    connection.release();
 }
-
-await query('SET FOREIGN_KEY_CHECKS = 1');
 
 await runSqlFile(schemaFile);
 

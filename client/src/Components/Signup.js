@@ -5,27 +5,19 @@ import { useAppContext } from "../context/AppContext.js";
 
 const Singup = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { login, notify, notifyError } = useAppContext();
+    const { notify, notifyError } = useAppContext();
     const navigate = useNavigate();
 
     const submitHandler = async (event) => {
         event.preventDefault();
         const fullName = event.target.fullName.value;
         const email = event.target.email.value;
-        const password = event.target.password.value;
-        const confirmPassword = event.target.confirmPassword.value;
-
-        if (password !== confirmPassword) {
-            notify('error', 'Passwords do not match.');
-            return;
-        }
 
         setIsSubmitting(true);
         try {
-            const response = await axios.post('/auth/signup', { fullName, email, password });
-            login(response.data.data);
-            notify('success', response.data.message);
-            navigate('/');
+            const response = await axios.post('/auth/signup', { fullName, email });
+            notify('success', `${response.data.message} Temporary password: Pke@1234`);
+            navigate('/login');
         } catch (error) {
             notifyError(error, 'Unable to create account right now.');
         } finally {
@@ -57,7 +49,7 @@ const Singup = () => {
             <form className="auth-form-card" onSubmit={submitHandler}>
                 <div className="auth-form-header">
                     <h3 className="mb-1">Sign Up</h3>
-                    <p className="mb-0">Create a new account to start using the ERP workspace.</p>
+                    <p className="mb-0">A temporary password is set for you. You will change it after your first login.</p>
                 </div>
                 <div className="app-field mb-3">
                     <label className="form-label" htmlFor="fullName">Full Name</label>
@@ -66,14 +58,6 @@ const Singup = () => {
                 <div className="app-field mb-3">
                     <label className="form-label" htmlFor="signupEmail">Email</label>
                     <input id="signupEmail" name="email" type="email" className="form-control app-input" required placeholder="you@example.com" />
-                </div>
-                <div className="app-field mb-3">
-                    <label className="form-label" htmlFor="signupPassword">Password</label>
-                    <input id="signupPassword" name="password" type="password" className="form-control app-input" required minLength="8" placeholder="At least 8 characters" />
-                </div>
-                <div className="app-field mb-3">
-                    <label className="form-label" htmlFor="confirmPassword">Confirm Password</label>
-                    <input id="confirmPassword" name="confirmPassword" type="password" className="form-control app-input" required minLength="8" placeholder="Retype password" />
                 </div>
                 <button type="submit" className="btn btn-success btn-lg w-100" disabled={isSubmitting}>
                     {isSubmitting ? 'Creating Account...' : 'Create Account'}

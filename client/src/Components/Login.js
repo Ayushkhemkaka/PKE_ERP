@@ -7,10 +7,6 @@ const Login = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { login, notify, notifyError } = useAppContext();
     const navigate = useNavigate();
-    const demoCredentials = {
-        email: 'test@pke.local',
-        password: 'Test@1234'
-    };
 
     const submitHandler = async (event) => {
         event.preventDefault();
@@ -20,20 +16,11 @@ const Login = () => {
 
         try {
             const response = await axios.post('/auth/login', { email, password });
-            login(response.data.data);
+            const user = response.data.data;
+            login(user);
             notify('success', response.data.message);
-            navigate('/orderentry');
+            navigate(user?.mustChangePassword ? '/change-password' : '/orderentry');
         } catch (error) {
-            if (email.trim().toLowerCase() === demoCredentials.email && password === demoCredentials.password) {
-                login({
-                    id: 'demo-user',
-                    fullName: 'PKE Test User',
-                    email: demoCredentials.email
-                });
-                notify('success', 'Demo login successful.');
-                navigate('/orderentry');
-                return;
-            }
             notifyError(error, 'Unable to log in right now.');
         } finally {
             setIsSubmitting(false);
@@ -64,7 +51,7 @@ const Login = () => {
             <form className="auth-form-card" onSubmit={submitHandler}>
                 <div className="auth-form-header">
                     <h3 className="mb-1">Login</h3>
-                    <p className="mb-0">Use your ERP account or the demo credentials to test the app.</p>
+                    <p className="mb-0">Use your ERP account to access the workspace.</p>
                 </div>
                 <div className="app-field mb-3">
                     <label className="form-label" htmlFor="email">Email</label>
@@ -77,10 +64,6 @@ const Login = () => {
                 <button type="submit" className="btn btn-success btn-lg w-100" disabled={isSubmitting}>
                     {isSubmitting ? 'Signing In...' : 'Login'}
                 </button>
-                <div className="auth-demo-box">
-                    <span>Demo Login</span>
-                    <strong>test@pke.local / Test@1234</strong>
-                </div>
                 <p className="auth-helper-text mb-0">Need an account? <Link to="/signup">Create one</Link></p>
             </form>
         </section>

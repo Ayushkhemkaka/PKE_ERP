@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS app_user (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT NULL,
+    must_change_password TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -178,6 +179,14 @@ VALUES (
     'Receipt Desk',
     'receiptdesk@pke.local',
     '5f094546c46534c592f8e3acca1bb2d6:cd2080f2923bc0e9f81937f58d463f2c02ca89bbcc53e0976d0bb6c65a4a64dae03bdb373c9c64954fb35fb766b610f09eab7456fe88264edf0a46f43530e628'
+);
+
+INSERT IGNORE INTO app_user(full_name, email, password_hash, must_change_password)
+VALUES (
+    'Hardik Khemka',
+    'hardikkhemka@gmail.com',
+    NULL,
+    1
 );
 
 INSERT IGNORE INTO customer_account(account_name, address, contact_name, phone, gstin, created_by, updated_by)

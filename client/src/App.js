@@ -12,6 +12,7 @@ import ItemStatusManager from './Components/ItemStatusManager.js';
 import SourceManager from './Components/SourceManager.js';
 import Login from './Components/Login.js';
 import Signup from './Components/Signup.js'
+import ChangePassword from './Components/ChangePassword.js';
 import AppAlert from './Components/AppAlert.js';
 import { AppProvider, useAppContext } from './context/AppContext.js';
 import AccountCreate from './Components/AccountCreate.js';
@@ -37,6 +38,7 @@ function AppLayout() {
   const { currentUser, isAuthReady } = useAppContext();
   const location = useLocation();
   const isPublicReceiptDesk = location.pathname === '/receipt-desk';
+  const mustChangePassword = Boolean(currentUser?.mustChangePassword);
 
   if (!isAuthReady) {
     return <RouteLoader />;
@@ -49,32 +51,33 @@ function AppLayout() {
         <div className={`app-container${isPublicReceiptDesk ? ' app-container-public' : ''}`}>
           {isPublicReceiptDesk ? null : <AppAlert />}
           <Routes>
-            <Route path='/' element={<Navigate to={currentUser ? "/orderentry" : "/login"} replace />} />
-            <Route path='/login' element={currentUser ? <Navigate to="/orderentry" replace /> : <Login />} />
-            <Route path='/signup' element={currentUser ? <Navigate to="/orderentry" replace /> : <Signup />} />
-            <Route path='/orderentry' element={currentUser ? <OrderEntry /> : <Navigate to="/login" replace />} />
-            <Route path='/b2borderentry' element={currentUser ? <B2BOrderEntry /> : <Navigate to="/login" replace />} />
-            <Route path='/orderfetch' element={currentUser ? <OrderFetch /> : <Navigate to="/login" replace />} />
-            <Route path='/b2borderfetch' element={currentUser ? <B2BOrderFetch /> : <Navigate to="/login" replace />} />
-            <Route path='/items' element={currentUser ? <RateManager /> : <Navigate to="/login" replace />} />
-            <Route path='/items/add' element={currentUser ? <RateManager /> : <Navigate to="/login" replace />} />
-            <Route path='/items/units' element={currentUser ? <MeasurementUnitManager /> : <Navigate to="/login" replace />} />
-            <Route path='/items/rates' element={currentUser ? <ItemRateUpdatePage /> : <Navigate to="/login" replace />} />
-            <Route path='/items/status' element={currentUser ? <ItemStatusManager /> : <Navigate to="/login" replace />} />
-            <Route path='/items/sources' element={currentUser ? <SourceManager /> : <Navigate to="/login" replace />} />
+            <Route path='/' element={<Navigate to={!currentUser ? "/login" : (mustChangePassword ? "/change-password" : "/orderentry")} replace />} />
+            <Route path='/login' element={currentUser ? <Navigate to={mustChangePassword ? "/change-password" : "/orderentry"} replace /> : <Login />} />
+            <Route path='/signup' element={currentUser ? <Navigate to={mustChangePassword ? "/change-password" : "/orderentry"} replace /> : <Signup />} />
+            <Route path='/change-password' element={currentUser ? <ChangePassword /> : <Navigate to="/login" replace />} />
+            <Route path='/orderentry' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <OrderEntry />) : <Navigate to="/login" replace />} />
+            <Route path='/b2borderentry' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <B2BOrderEntry />) : <Navigate to="/login" replace />} />
+            <Route path='/orderfetch' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <OrderFetch />) : <Navigate to="/login" replace />} />
+            <Route path='/b2borderfetch' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <B2BOrderFetch />) : <Navigate to="/login" replace />} />
+            <Route path='/items' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <RateManager />) : <Navigate to="/login" replace />} />
+            <Route path='/items/add' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <RateManager />) : <Navigate to="/login" replace />} />
+            <Route path='/items/units' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <MeasurementUnitManager />) : <Navigate to="/login" replace />} />
+            <Route path='/items/rates' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <ItemRateUpdatePage />) : <Navigate to="/login" replace />} />
+            <Route path='/items/status' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <ItemStatusManager />) : <Navigate to="/login" replace />} />
+            <Route path='/items/sources' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <SourceManager />) : <Navigate to="/login" replace />} />
             <Route path='/rates' element={<Navigate to="/items/add" replace />} />
-            <Route path='/accounts/create' element={currentUser ? <AccountCreate /> : <Navigate to="/login" replace />} />
-            <Route path='/accounts/fetch' element={currentUser ? <AccountFetch /> : <Navigate to="/login" replace />} />
-            <Route path='/due-accounts' element={currentUser ? <DueAccountsPage /> : <Navigate to="/login" replace />} />
-            <Route path='/cash/due' element={currentUser ? <DueAccountsPage fixedMode="normal" /> : <Navigate to="/login" replace />} />
-            <Route path='/onsite-cash' element={currentUser ? <OnsiteCashCollectionPage /> : <Navigate to="/login" replace />} />
-            <Route path='/b2b/due' element={currentUser ? <DueAccountsPage fixedMode="b2b" /> : <Navigate to="/login" replace />} />
-            <Route path='/cash/history' element={currentUser ? <InvoiceHistoryPage mode="normal" /> : <Navigate to="/login" replace />} />
-            <Route path='/b2b/history' element={currentUser ? <InvoiceHistoryPage mode="b2b" /> : <Navigate to="/login" replace />} />
-            <Route path='/analytics' element={currentUser ? <AnalyticsPage /> : <Navigate to="/login" replace />} />
-            <Route path='/employee-receipts' element={currentUser ? <EmployeeReceiptDesk /> : <Navigate to="/login" replace />} />
+            <Route path='/accounts/create' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <AccountCreate />) : <Navigate to="/login" replace />} />
+            <Route path='/accounts/fetch' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <AccountFetch />) : <Navigate to="/login" replace />} />
+            <Route path='/due-accounts' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <DueAccountsPage />) : <Navigate to="/login" replace />} />
+            <Route path='/cash/due' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <DueAccountsPage fixedMode="normal" />) : <Navigate to="/login" replace />} />
+            <Route path='/onsite-cash' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <OnsiteCashCollectionPage />) : <Navigate to="/login" replace />} />
+            <Route path='/b2b/due' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <DueAccountsPage fixedMode="b2b" />) : <Navigate to="/login" replace />} />
+            <Route path='/cash/history' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <InvoiceHistoryPage mode="normal" />) : <Navigate to="/login" replace />} />
+            <Route path='/b2b/history' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <InvoiceHistoryPage mode="b2b" />) : <Navigate to="/login" replace />} />
+            <Route path='/analytics' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <AnalyticsPage />) : <Navigate to="/login" replace />} />
+            <Route path='/employee-receipts' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <EmployeeReceiptDesk />) : <Navigate to="/login" replace />} />
             <Route path='/receipt-desk' element={<EmployeeReceiptDesk publicView={true} />} />
-            <Route path='/owner-reprints' element={currentUser ? <OwnerReceiptReprint /> : <Navigate to="/login" replace />} />
+            <Route path='/owner-reprints' element={currentUser ? (mustChangePassword ? <Navigate to="/change-password" replace /> : <OwnerReceiptReprint />) : <Navigate to="/login" replace />} />
           </Routes>
         </div>
       </main>
