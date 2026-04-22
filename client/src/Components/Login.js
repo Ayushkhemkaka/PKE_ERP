@@ -9,7 +9,6 @@ const Login = () => {
     const navigate = useNavigate();
 
     const submitHandler = async (event) => {
-        event.preventDefault();
         setIsSubmitting(true);
         const email = event.target.email.value;
         const password = event.target.password.value;
@@ -48,7 +47,14 @@ const Login = () => {
                     </div>
                 </div>
             </div>
-            <form className="auth-form-card" onSubmit={submitHandler}>
+            <form
+                className="auth-form-card"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void submitHandler(event);
+                }}
+            >
                 <div className="auth-form-header">
                     <h3 className="mb-1">Login</h3>
                     <p className="mb-0">Use your ERP account to access the workspace.</p>

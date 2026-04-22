@@ -9,7 +9,6 @@ const Singup = () => {
     const navigate = useNavigate();
 
     const submitHandler = async (event) => {
-        event.preventDefault();
         const fullName = event.target.fullName.value;
         const email = event.target.email.value;
 
@@ -46,7 +45,14 @@ const Singup = () => {
                     </div>
                 </div>
             </div>
-            <form className="auth-form-card" onSubmit={submitHandler}>
+            <form
+                className="auth-form-card"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void submitHandler(event);
+                }}
+            >
                 <div className="auth-form-header">
                     <h3 className="mb-1">Sign Up</h3>
                     <p className="mb-0">A temporary password is set for you. You will change it after your first login.</p>

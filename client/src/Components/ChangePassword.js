@@ -15,7 +15,6 @@ const ChangePassword = () => {
     }, [currentUser, navigate]);
 
     const submitHandler = async (event) => {
-        event.preventDefault();
         if (!currentUser) {
             return;
         }
@@ -67,7 +66,14 @@ const ChangePassword = () => {
                     </div>
                 </div>
             </div>
-            <form className="auth-form-card" onSubmit={submitHandler}>
+            <form
+                className="auth-form-card"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void submitHandler(event);
+                }}
+            >
                 <div className="auth-form-header">
                     <h3 className="mb-1">Change Password</h3>
                     <p className="mb-0">{currentUser ? `Signed in as ${currentUser.email}` : 'Sign in to continue.'}</p>
@@ -93,4 +99,3 @@ const ChangePassword = () => {
 };
 
 export default ChangePassword;
-
