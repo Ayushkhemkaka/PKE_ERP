@@ -5,7 +5,13 @@ const extractBearerToken = (req) => {
     const headerValue = req.headers?.authorization || req.headers?.Authorization;
     const raw = Array.isArray(headerValue) ? headerValue[0] : headerValue;
     if (!raw) {
-        return null;
+        const altHeader =
+            req.headers?.['x-auth-token'] ||
+            req.headers?.['x-access-token'] ||
+            req.headers?.['X-Auth-Token'] ||
+            req.headers?.['X-Access-Token'];
+        const altRaw = Array.isArray(altHeader) ? altHeader[0] : altHeader;
+        return altRaw ? String(altRaw).trim() : null;
     }
     const match = String(raw).match(/^Bearer\s+(.+)$/i);
     return match ? match[1].trim() : null;
@@ -36,4 +42,3 @@ const requireAuth = (req, res) => {
 };
 
 export { requireAuth };
-

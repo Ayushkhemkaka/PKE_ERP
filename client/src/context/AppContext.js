@@ -82,8 +82,10 @@ const AppProvider = ({ children }) => {
     useEffect(() => {
         if (authToken) {
             axios.defaults.headers.common.Authorization = `Bearer ${authToken}`;
+            axios.defaults.headers.common['X-Auth-Token'] = authToken;
         } else {
             delete axios.defaults.headers.common.Authorization;
+            delete axios.defaults.headers.common['X-Auth-Token'];
         }
     }, [authToken]);
 
@@ -149,6 +151,13 @@ const AppProvider = ({ children }) => {
         const nextToken = payload?.token ?? null;
         setCurrentUser(nextUser);
         setAuthToken(nextToken);
+        if (nextToken) {
+            axios.defaults.headers.common.Authorization = `Bearer ${nextToken}`;
+            axios.defaults.headers.common['X-Auth-Token'] = nextToken;
+        } else {
+            delete axios.defaults.headers.common.Authorization;
+            delete axios.defaults.headers.common['X-Auth-Token'];
+        }
         persistSession(createSessionPayload(nextUser, nextToken));
         scheduleSessionTimeout();
     };
@@ -156,6 +165,8 @@ const AppProvider = ({ children }) => {
     const logout = () => {
         setCurrentUser(null);
         setAuthToken(null);
+        delete axios.defaults.headers.common.Authorization;
+        delete axios.defaults.headers.common['X-Auth-Token'];
         clearSessionTimer();
         clearStoredSession();
     };
