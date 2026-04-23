@@ -1,6 +1,20 @@
 import { sendError } from './apiResponse.js';
 
-const normalizeOrigin = (origin) => String(origin || '').trim().toLowerCase();
+const normalizeOrigin = (origin) => {
+  const raw = String(origin || '').trim();
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    const protocol = url.protocol.toLowerCase();
+    const hostname = url.hostname.toLowerCase();
+    const port = url.port;
+    const isDefaultPort = (protocol === 'https:' && (port === '' || port === '443')) || (protocol === 'http:' && (port === '' || port === '80'));
+    return `${protocol}//${hostname}${isDefaultPort ? '' : `:${port}`}`;
+  } catch {
+    return raw.toLowerCase().replace(/\/+$/, '');
+  }
+};
 
 const parseAllowList = () => {
   const raw = String(process.env.ALLOWED_ORIGINS || '').trim();
@@ -57,4 +71,3 @@ const enforceOrigin = (req, res) => {
 };
 
 export { enforceOrigin };
-
